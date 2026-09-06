@@ -1,0 +1,150 @@
+<!-- ================= CART DRAWER ================= -->
+<div id="cartDrawer" class="hidden fixed inset-0 z-50 overflow-hidden">
+  <div class="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity" onclick="closeCartDrawer()"></div>
+  <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
+    <div class="w-screen max-w-md bg-white shadow-2xl flex flex-col">
+      <div class="p-4 border-b border-gray-100 flex items-center justify-between bg-zett-teal text-white">
+        <h3 class="font-bold text-base flex items-center space-x-2">
+          <span>🛒</span> <span>Keranjang Belanja</span>
+        </h3>
+        <button onclick="closeCartDrawer()" class="p-1 hover:bg-black/20 rounded-md">✕</button>
+      </div>
+
+      <div id="cartItemsContainer" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+
+      <div class="p-4 border-t border-gray-100 bg-gray-50 space-y-3">
+        <div class="flex justify-between items-center text-sm font-semibold">
+          <span class="text-gray-600">Total Pembayaran:</span>
+          <span id="cartTotalPrice" class="text-base text-teal-800 font-bold">Rp 0</span>
+        </div>
+        <button onclick="proceedToCheckout()" class="w-full bg-zett-teal text-white py-3 rounded-lg font-bold text-sm hover:bg-teal-800 transition shadow-md">
+          Lanjut ke Checkout
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= CHECKOUT MODAL ================= -->
+<div id="checkoutModal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+    <div class="flex justify-between items-center border-b pb-3">
+      <h3 class="font-bold text-gray-800 text-base">Konfirmasi Pesanan & Transfer Bank</h3>
+      <button onclick="closeModal('checkoutModal')" class="text-gray-400 hover:text-gray-600">✕</button>
+    </div>
+
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">
+      <p class="font-semibold">Pemberitahuan Transfer:</p>
+      <p>Silakan transfer total pembayaran ke rekening resmi ZETT STORE berikut:</p>
+      <p class="font-mono font-bold text-gray-900 mt-1">BCA: 8830-192-881 (a.n Zettbos Store)</p>
+    </div>
+
+    <div class="space-y-3 text-xs">
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Pilih Bank Pembayaran</label>
+        <select id="checkoutBankSelect" class="w-full border rounded-lg p-2.5 bg-white">
+          <option value="BCA">Bank BCA (8830-192-881)</option>
+          <option value="Mandiri">Bank Mandiri (137-00-998822-1)</option>
+          <option value="BRI">Bank BRI (0206-01-002938-50-3)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Total Tagihan</label>
+        <input type="text" id="checkoutTotalDisplay" readonly class="w-full bg-gray-100 border rounded-lg p-2.5 font-bold text-teal-800">
+      </div>
+    </div>
+
+    <button onclick="confirmSubmitOrder()" id="btnSubmitOrder" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg text-sm transition flex items-center justify-center space-x-2 shadow-lg">
+      <span>Kirim Pesanan & Konfirmasi WhatsApp</span>
+    </button>
+  </div>
+</div>
+
+<!-- ================= MASTER PRODUCT MODAL ================= -->
+<div id="masterProductModal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+    <div class="flex justify-between items-center border-b pb-2">
+      <h3 id="masterModalTitle" class="font-bold text-gray-800 text-base">Tambah Produk Baru</h3>
+      <button onclick="closeModal('masterProductModal')" class="text-gray-400 hover:text-gray-600">✕</button>
+    </div>
+
+    <form id="masterProductForm" onsubmit="event.preventDefault(); submitMasterProduct();" class="space-y-3 text-xs">
+      <input type="hidden" id="masterIsEdit" value="false">
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">SKU (Kode Unik)</label>
+        <input type="text" id="masterSku" required placeholder="Contoh: SKU-SP-003" class="w-full border rounded-lg p-2.5 focus:border-teal-600 focus:outline-none">
+      </div>
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Nama Produk</label>
+        <input type="text" id="masterName" required placeholder="Nama sepatu / pakaian..." class="w-full border rounded-lg p-2.5 focus:border-teal-600 focus:outline-none">
+      </div>
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Kategori</label>
+        <select id="masterCategory" class="w-full border rounded-lg p-2.5 bg-white">
+          <option value="Sepatu Pria">Sepatu Pria</option>
+          <option value="Sepatu Lari">Sepatu Lari</option>
+          <option value="Pakaian Olahraga">Pakaian Olahraga</option>
+          <option value="Aksesoris">Aksesoris</option>
+        </select>
+      </div>
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Harga (Rp)</label>
+        <input type="number" id="masterPrice" required placeholder="Contoh: 1250000" class="w-full border rounded-lg p-2.5 focus:border-teal-600 focus:outline-none">
+      </div>
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">URL Gambar (Opsional)</label>
+        <input type="text" id="masterImage" placeholder="https://..." class="w-full border rounded-lg p-2.5 focus:border-teal-600 focus:outline-none">
+      </div>
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Deskripsi Singkat</label>
+        <textarea id="masterDesc" rows="2" class="w-full border rounded-lg p-2.5 focus:border-teal-600 focus:outline-none"></textarea>
+      </div>
+
+      <button type="submit" class="w-full bg-zett-teal text-white font-bold py-2.5 rounded-lg hover:bg-teal-800 transition">
+        Simpan Produk
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ================= INVENTORY EDIT MODAL ================= -->
+<div id="editStockModal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+    <div class="flex justify-between items-center border-b pb-2">
+      <h3 class="font-bold text-gray-800 text-base">Update Stok Inventori</h3>
+      <button onclick="closeModal('editStockModal')" class="text-gray-400 hover:text-gray-600">✕</button>
+    </div>
+    <form onsubmit="event.preventDefault(); submitInventoryUpdate();" class="space-y-3 text-xs">
+      <input type="hidden" id="stockEditSku">
+      <input type="hidden" id="stockEditBranch">
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Nama Produk / SKU</label>
+        <p id="stockEditLabel" class="font-bold text-gray-800"></p>
+      </div>
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Jumlah Stok Baru</label>
+        <input type="number" id="stockEditQty" min="0" required class="w-full border rounded-lg p-2.5 focus:border-teal-600 focus:outline-none">
+      </div>
+      <button type="submit" class="w-full bg-zett-teal text-white font-bold py-2.5 rounded-lg hover:bg-teal-800 transition">
+        Simpan Perubahan Stok
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ================= DELETE CONFIRMATION MODAL ================= -->
+<div id="deleteConfirmModal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl text-center">
+    <div class="text-4xl text-rose-500">⚠️</div>
+    <h3 class="font-bold text-gray-800 text-base">Hapus Produk Master</h3>
+    <p class="text-xs text-gray-500">Apakah Anda yakin ingin menghapus produk dengan SKU <b id="deleteConfirmSkuText" class="text-gray-800"></b>? Tindakan ini tidak dapat dibatalkan.</p>
+    <input type="hidden" id="deleteTargetSku">
+    <div class="flex space-x-2 pt-2">
+      <button onclick="closeModal('deleteConfirmModal')" class="w-1/2 bg-gray-100 text-gray-700 font-bold py-2 rounded-lg text-xs hover:bg-gray-200 transition">Batal</button>
+      <button onclick="executeProductDeletion()" class="w-1/2 bg-rose-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-rose-700 transition">Hapus Produk</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOM TOAST CONTAINER -->
+<div id="toastContainer" class="fixed bottom-20 md:bottom-4 right-4 z-50 space-y-2"></div>
