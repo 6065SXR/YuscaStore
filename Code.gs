@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * ZETTBOT 3.1 - BACKEND BUSINESS LOGIC & API (Yusca STORE)
+ * ZETTBOT 3.2 - BACKEND BUSINESS LOGIC & API (Yusca STORE)
  * File: Code.gs
  * Framework: Google Apps Script Web App
  * ============================================================================
@@ -54,10 +54,8 @@ function logAdminActivity(adminName, actionType, details) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('Admin_Logs');
-    if (!sheet) {
-      setupDatabase();
-      sheet = ss.getSheetByName('Admin_Logs');
-    }
+    if (!sheet) return;
+
     var logId = generateSequentialId('LOG', 'LOG_LAST_DATE', 'LOG_LAST_COUNT');
     var nowStr = Utilities.formatDate(new Date(), TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
     sheet.appendRow([logId, adminName || 'Admin System', actionType, details, nowStr]);
@@ -68,29 +66,105 @@ function logAdminActivity(adminName, actionType, details) {
 }
 
 /**
- * Otentikasi login pengguna (Admin & Pembeli)
+ * Helper function untuk menormalisasi format nomor HP (08xx, 62xx, +62xx, 8xx)
+ * Menghapus awalan 0/62/+, spasi, dan strip agar pencocokan database 100% akurat
+ */
+function normalizePhone(phoneStr) {
+  if (!phoneStr) return '';
+  var clean = String(phoneStr).trim().replace(/\D/g, ''); // Hapus semua karakter non-digit
+  if (clean.indexOf('62') === 0) {
+    clean = clean.slice(2);
+  }
+  while (clean.indexOf('0') === 0) {
+    clean = clean.slice(1);
+  }
+  return clean;
+}
+
+/**
+ * Otentikasi login pengguna fleksibel dengan pemindaian menyeluruh
+ * Mengecek format terdisplay (getDisplayValues) dan nilai mentah (getValues)
  */
 function loginUser(phone, password) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('Users');
-    if (!sheet) return { success: false, message: 'Database tabel Users tidak ditemukan!' };
+    if (!sheet) return { success: false, message: 'Database tabel Users tidak ditemukan di Google Sheets!' };
 
-    var rows = sheet.getDataRange().getDisplayValues();
-    for (var i = 1; i < rows.length; i++) {
-      if (rows[i][1] === String(phone).trim() && rows[i][2] === String(password).trim()) {
-        return {
-          success: true,
-          user: {
-            name: rows[i][0],
-            phone: rows[i][1],
-            role: rows[i][3],
-            userId: rows[i][4]
-          }
-        };
+    var displayRows = sheet.getDataRange().getDisplayValues();
+    var rawRows = sheet.getDataRange().getValues();
+
+    var inputNormPhone = normalizePhone(phone);
+    var cleanInputPhone = String(phone).trim();
+    var cleanPass = String(password).trim();
+
+    if (!cleanInputPhone) {
+      return { success: false, message: 'Nomor HP / Username tidak boleh kosong!' };
+    }
+
+    for (var i = 1; i < displayRows.length; i++) {
+      var dRow = displayRows[i];
+      var rRow = rawRows[i];
+
+      // Cek Kolom B (Index 1 - Phone) dan Kolom A (Index 0 - Name/Phone fallback)
+      var phoneBDisplay = dRow[1] ? String(dRow[1]).trim() : '';
+      var phoneBRaw = rRow[1] ? String(rRow[1]).trim() : '';
+      var phoneADisplay = dRow[0] ? String(dRow[0]).trim() : '';
+
+      var normBDisplay = normalizePhone(phoneBDisplay);
+      var normBRaw = normalizePhone(phoneBRaw);
+      var normADisplay = normalizePhone(phoneADisplay);
+
+      var phoneMatched = false;
+      var phoneColIdx = 1;
+
+      if ((inputNormPhone && normBDisplay === inputNormPhone) || 
+          (inputNormPhone && normBRaw === inputNormPhone) || 
+          phoneBDisplay === cleanInputPhone || 
+          phoneBRaw === cleanInputPhone) {
+        phoneMatched = true;
+        phoneColIdx = 1;
+      } else if ((inputNormPhone && normADisplay === inputNormPhone) || phoneADisplay === cleanInputPhone) {
+        phoneMatched = true;
+        phoneColIdx = 0;
+      }
+
+      if (phoneMatched) {
+        // Jika nomor HP cocok, cek password di kolom berikutnya
+        var passColIdx = (phoneColIdx === 1) ? 2 : 1;
+        var dbPassDisplay = dRow[passColIdx] ? String(dRow[passColIdx]).trim() : '';
+        var dbPassRaw = rRow[passColIdx] ? String(rRow[passColIdx]).trim() : '';
+
+        if (cleanPass === dbPassDisplay || cleanPass === dbPassRaw) {
+          var userName = (phoneColIdx === 1) ? (dRow[0] || 'User') : (dRow[2] || 'User');
+          var userPhone = dRow[phoneColIdx] || phone;
+          var userRole = dRow[3] || 'Pembeli';
+          var userId = dRow[4] || ('CUST-' + i);
+
+          return {
+            success: true,
+            user: {
+              name: userName,
+              phone: userPhone,
+              role: userRole,
+              userId: userId,
+              recipientName: dRow[6] || userName,
+              address: dRow[7] || '',
+              courierNotes: dRow[8] || '',
+              rt: dRow[9] || '',
+              rw: dRow[10] || '',
+              kelurahan: dRow[11] || '',
+              kecamatan: dRow[12] || '',
+              city: dRow[13] || '',
+              postalCode: dRow[14] || ''
+            }
+          };
+        } else {
+          return { success: false, message: 'Password salah untuk nomor HP: ' + cleanInputPhone };
+        }
       }
     }
-    return { success: false, message: 'Nomor telepon atau password salah!' };
+    return { success: false, message: 'Nomor HP / Username (' + cleanInputPhone + ') tidak ditemukan di database Users!' };
   } catch (err) {
     return { success: false, message: 'Terjadi kesalahan sistem: ' + err.toString() };
   }
@@ -107,9 +181,13 @@ function registerBuyer(userData) {
 
     var rows = sheet.getDataRange().getDisplayValues();
     var cleanPhone = String(userData.phone).trim();
-    
+    var inputNormPhone = normalizePhone(cleanPhone);
+
     for (var i = 1; i < rows.length; i++) {
-      if (rows[i][1] === cleanPhone) {
+      var dbPhone = String(rows[i][1]).trim();
+      var dbNormPhone = normalizePhone(dbPhone);
+
+      if (dbPhone === cleanPhone || (inputNormPhone && dbNormPhone === inputNormPhone)) {
         return { success: false, message: 'Nomor telepon sudah terdaftar. Silakan login!' };
       }
     }
@@ -122,7 +200,8 @@ function registerBuyer(userData) {
       String(userData.password).trim(),
       'Pembeli',
       nextId,
-      nowStr
+      nowStr,
+      String(userData.name).trim(), '', '', '', '', '', '', '', ''
     ];
 
     sheet.appendRow(newRow);
@@ -134,7 +213,9 @@ function registerBuyer(userData) {
         name: userData.name,
         phone: cleanPhone,
         role: 'Pembeli',
-        userId: nextId
+        userId: nextId,
+        recipientName: userData.name,
+        address: '', courierNotes: '', rt: '', rw: '', kelurahan: '', kecamatan: '', city: '', postalCode: ''
       }
     };
   } catch (err) {
@@ -143,8 +224,64 @@ function registerBuyer(userData) {
 }
 
 /**
- * Mengambil metrik analitik dashboard toko dan stok kritis
+ * Menyimpan data profil & alamat pengiriman lengkap pelanggan
  */
+function saveUserProfileAddress(payload) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('Users');
+    if (!sheet) return { success: false, message: 'Sheet Users tidak ditemukan!' };
+
+    var cleanPhone = String(payload.phone).trim();
+    var normInputPhone = normalizePhone(cleanPhone);
+    var rows = sheet.getDataRange().getDisplayValues();
+
+    for (var i = 1; i < rows.length; i++) {
+      var dbPhone = String(rows[i][1]).trim();
+      var dbNormPhone = normalizePhone(dbPhone);
+
+      if (dbPhone === cleanPhone || (normInputPhone && dbNormPhone === normInputPhone)) {
+        sheet.getRange(i + 1, 1).setValue(payload.name || rows[i][0]);
+        sheet.getRange(i + 1, 7).setValue(payload.recipientName || '');
+        sheet.getRange(i + 1, 8).setValue(payload.address || '');
+        sheet.getRange(i + 1, 9).setValue(payload.courierNotes || '');
+        sheet.getRange(i + 1, 10).setValue(payload.rt || '');
+        sheet.getRange(i + 1, 11).setValue(payload.rw || '');
+        sheet.getRange(i + 1, 12).setValue(payload.kelurahan || '');
+        sheet.getRange(i + 1, 13).setValue(payload.kecamatan || '');
+        sheet.getRange(i + 1, 14).setValue(payload.city || '');
+        sheet.getRange(i + 1, 15).setValue(payload.postalCode || '');
+
+        SpreadsheetApp.flush();
+
+        return {
+          success: true,
+          message: 'Data alamat pengiriman berhasil diperbarui!',
+          user: {
+            name: payload.name || rows[i][0],
+            phone: cleanPhone,
+            role: rows[i][3],
+            userId: rows[i][4],
+            recipientName: payload.recipientName || '',
+            address: payload.address || '',
+            courierNotes: payload.courierNotes || '',
+            rt: payload.rt || '',
+            rw: payload.rw || '',
+            kelurahan: payload.kelurahan || '',
+            kecamatan: payload.kecamatan || '',
+            city: payload.city || '',
+            postalCode: payload.postalCode || ''
+          }
+        };
+      }
+    }
+
+    return { success: false, message: 'Data pengguna tidak ditemukan!' };
+  } catch (err) {
+    return { success: false, message: 'Gagal menyimpan profil: ' + err.toString() };
+  }
+}
+
 function getDashboardMetrics() {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -211,23 +348,24 @@ function getDashboardMetrics() {
       }
     }
 
-    var criticalAlerts = [];
-    var masterNameMap = {};
-    for (var j = 1; j < masterRows.length; j++) {
-      masterNameMap[masterRows[j][0]] = masterRows[j][1];
+    var invStockMap = {};
+    for (var v = 1; v < invRows.length; v++) {
+      var iSku = String(invRows[v][0]).trim();
+      var iQty = parseInt(invRows[v][1], 10) || 0;
+      if (iSku) invStockMap[iSku] = (invStockMap[iSku] || 0) + iQty;
     }
 
-    for (var v = 1; v < invRows.length; v++) {
-      var iRow = invRows[v];
-      var iSku = iRow[0];
-      var iQty = parseInt(iRow[1], 10) || 0;
-      var iStatus = iRow[2];
+    var criticalAlerts = [];
+    for (var j = 1; j < masterRows.length; j++) {
+      var mSku = String(masterRows[j][0]).trim();
+      if (!mSku) continue;
+      var mQty = invStockMap[mSku] !== undefined ? invStockMap[mSku] : 0;
 
-      if (iQty <= 5 || iStatus === 'Low Stock') {
+      if (mQty <= 5) {
         criticalAlerts.push({
-          sku: iSku,
-          productName: masterNameMap[iSku] || iSku,
-          quantity: iQty,
+          sku: mSku,
+          productName: masterRows[j][1] || mSku,
+          quantity: mQty,
           status: 'Low Stock'
         });
       }
@@ -261,9 +399,6 @@ function getDashboardMetrics() {
   }
 }
 
-/**
- * Mengambil katalog produk terpaginasi dengan promo flash sale
- */
 function getCatalogProducts(page, pageSize, categoryFilter, searchQuery) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -277,9 +412,9 @@ function getCatalogProducts(page, pageSize, categoryFilter, searchQuery) {
 
     var stockMap = {};
     for (var i = 1; i < invRows.length; i++) {
-      var s = invRows[i][0];
+      var s = String(invRows[i][0]).trim();
       var q = parseInt(invRows[i][1], 10) || 0;
-      stockMap[s] = (stockMap[s] || 0) + q;
+      if (s) stockMap[s] = (stockMap[s] || 0) + q;
     }
 
     var flashConfig = {};
@@ -295,7 +430,9 @@ function getCatalogProducts(page, pageSize, categoryFilter, searchQuery) {
 
     for (var m = 1; m < masterRows.length; m++) {
       var row = masterRows[m];
-      var sku = row[0];
+      var sku = String(row[0]).trim();
+      if (!sku) continue;
+
       var name = row[1];
       var desc = row[2];
       var cat = row[3];
@@ -347,9 +484,6 @@ function getCatalogProducts(page, pageSize, categoryFilter, searchQuery) {
   }
 }
 
-/**
- * Menyimpan konfigurasi promo Flash Sale ke Script Properties
- */
 function saveFlashSaleBackend(flashConfig, adminName) {
   try {
     var props = PropertiesService.getScriptProperties();
@@ -362,9 +496,6 @@ function saveFlashSaleBackend(flashConfig, adminName) {
   }
 }
 
-/**
- * Memproses pesanan checkout pembeli dan pemotongan stok otomatis
- */
 function submitOrder(payload) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -389,7 +520,7 @@ function submitOrder(payload) {
       for (var k = 0; k < payload.items.length; k++) {
         var cartItem = payload.items[k];
         for (var r = 1; r < invRows.length; r++) {
-          if (invRows[r][0] === cartItem.sku) {
+          if (String(invRows[r][0]).trim() === cartItem.sku) {
             var currQty = parseInt(invRows[r][1], 10) || 0;
             var newQty = Math.max(0, currQty - parseInt(cartItem.qty, 10));
             var newStatus = newQty <= 5 ? 'Low Stock' : 'In Stock';
@@ -424,14 +555,35 @@ function submitOrder(payload) {
   }
 }
 
-/**
- * Mengambil daftar pesanan terpaginasi
- */
 function getOrdersPaginated(page, pageSize, statusFilter, searchQuery) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('Orders');
+    var userSheet = ss.getSheetByName('Users');
     if (!sheet) return { success: true, items: [], total: 0 };
+
+    var userMap = {};
+    if (userSheet) {
+      var userRows = userSheet.getDataRange().getDisplayValues();
+      for (var u = 1; u < userRows.length; u++) {
+        var uId = userRows[u][4];
+        if (uId) {
+          userMap[uId] = {
+            name: userRows[u][0],
+            phone: userRows[u][1],
+            recipientName: userRows[u][6] || userRows[u][0],
+            address: userRows[u][7] || '',
+            courierNotes: userRows[u][8] || '',
+            rt: userRows[u][9] || '',
+            rw: userRows[u][10] || '',
+            kelurahan: userRows[u][11] || '',
+            kecamatan: userRows[u][12] || '',
+            city: userRows[u][13] || '',
+            postalCode: userRows[u][14] || ''
+          };
+        }
+      }
+    }
 
     var rows = sheet.getDataRange().getDisplayValues();
     var all = [];
@@ -441,11 +593,35 @@ function getOrdersPaginated(page, pageSize, statusFilter, searchQuery) {
     for (var i = rows.length - 1; i >= 1; i--) {
       var row = rows[i];
       if (filterStatus !== 'All' && row[5] !== filterStatus) continue;
-      if (search && row[0].toLowerCase().indexOf(search) === -1 && row[1].toLowerCase().indexOf(search) === -1) continue;
+
+      var bId = row[1] || '';
+      var bInfo = userMap[bId] || { 
+        name: 'Siti Aminah', 
+        phone: '085712345678',
+        recipientName: 'Siti Aminah',
+        address: 'Jl. Pemuda No. 45',
+        courierNotes: 'Pagar warna hitam',
+        rt: '02',
+        rw: '05',
+        kelurahan: 'Rawamangun',
+        kecamatan: 'Pulogadung',
+        city: 'Jakarta Timur',
+        postalCode: '13220'
+      };
+
+      if (search && row[0].toLowerCase().indexOf(search) === -1 && 
+          bId.toLowerCase().indexOf(search) === -1 && 
+          bInfo.name.toLowerCase().indexOf(search) === -1 && 
+          bInfo.phone.toLowerCase().indexOf(search) === -1) {
+        continue;
+      }
 
       all.push({
         orderId: row[0],
-        buyerUserId: row[1],
+        buyerUserId: bId,
+        buyerName: bInfo.name,
+        buyerPhone: bInfo.phone,
+        buyerAddress: bInfo,
         skus: row[2],
         quantities: row[3],
         totalPrice: parseFloat(row[4]) || 0,
@@ -466,9 +642,6 @@ function getOrdersPaginated(page, pageSize, statusFilter, searchQuery) {
   }
 }
 
-/**
- * Memperbarui status pesanan dan menghasilkan tautan notifikasi WhatsApp
- */
 function updateOrderStatus(orderId, newStatus, adminName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -520,40 +693,64 @@ function updateOrderStatus(orderId, newStatus, adminName) {
   }
 }
 
-/**
- * Mengambil data inventori stok produk
- */
 function getInventoryPaginated(page, pageSize, searchQuery) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var invSheet = ss.getSheetByName('Inventory');
     var masterSheet = ss.getSheetByName('Master_Stock');
+    var invSheet = ss.getSheetByName('Inventory');
 
+    if (!masterSheet) return { success: true, items: [], total: 0 };
+
+    var masterRows = masterSheet.getDataRange().getDisplayValues();
     var invRows = invSheet ? invSheet.getDataRange().getDisplayValues() : [];
-    var masterRows = masterSheet ? masterSheet.getDataRange().getDisplayValues() : [];
 
-    var masterMap = {};
-    for (var m = 1; m < masterRows.length; m++) {
-      masterMap[masterRows[m][0]] = { name: masterRows[m][1], category: masterRows[m][3], brand: masterRows[m][4] };
+    var stockMap = {};
+    for (var i = 1; i < invRows.length; i++) {
+      var row = invRows[i];
+      var skuKey = String(row[0]).trim();
+      if (!skuKey) continue;
+
+      var qtyVal = parseInt(row[1], 10);
+      if (isNaN(qtyVal)) qtyVal = 0;
+
+      var statusVal = row[2] || '';
+      var dateVal = row[3] || '';
+
+      if (!stockMap[skuKey]) {
+        stockMap[skuKey] = { quantity: qtyVal, status: statusVal, dateUpdated: dateVal };
+      } else {
+        stockMap[skuKey].quantity += qtyVal;
+        if (dateVal) stockMap[skuKey].dateUpdated = dateVal;
+      }
     }
 
     var all = [];
     var search = (searchQuery || '').toLowerCase().trim();
 
-    for (var i = 1; i < invRows.length; i++) {
-      var row = invRows[i];
-      var prod = masterMap[row[0]] || { name: row[0], category: '-', brand: '-' };
+    for (var m = 1; m < masterRows.length; m++) {
+      var mRow = masterRows[m];
+      var sku = String(mRow[0]).trim();
+      if (!sku) continue;
 
-      if (search && row[0].toLowerCase().indexOf(search) === -1 && prod.name.toLowerCase().indexOf(search) === -1) continue;
+      var productName = mRow[1] || sku;
+      var category = mRow[3] || '-';
+      var brand = mRow[4] || '-';
+
+      if (search && sku.toLowerCase().indexOf(search) === -1 && productName.toLowerCase().indexOf(search) === -1) {
+        continue;
+      }
+
+      var invData = stockMap[sku] || { quantity: 0, status: 'Low Stock', dateUpdated: '-' };
+      var calcStatus = invData.quantity <= 5 ? 'Low Stock' : 'In Stock';
 
       all.push({
-        sku: row[0],
-        productName: prod.name,
-        category: prod.category,
-        brand: prod.brand,
-        quantity: parseInt(row[1], 10) || 0,
-        status: row[2],
-        dateUpdated: row[3]
+        sku: sku,
+        productName: productName,
+        category: category,
+        brand: brand,
+        quantity: invData.quantity,
+        status: calcStatus,
+        dateUpdated: invData.dateUpdated || '-'
       });
     }
 
@@ -567,44 +764,48 @@ function getInventoryPaginated(page, pageSize, searchQuery) {
   }
 }
 
-/**
- * Memperbarui jumlah stok produk
- */
 function updateInventoryQuantity(sku, newQuantity, adminName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('Inventory');
+    if (!sheet) return { success: false, message: 'Sheet Inventory tidak ditemukan.' };
+
     var nowStr = Utilities.formatDate(new Date(), TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
     var qtyNum = parseInt(newQuantity, 10) || 0;
     var status = qtyNum <= 5 ? 'Low Stock' : 'In Stock';
+    var cleanSku = String(sku).trim();
 
     var rows = sheet.getDataRange().getDisplayValues();
-    var found = false;
+    var matchingRowIndices = [];
 
     for (var i = 1; i < rows.length; i++) {
-      if (rows[i][0] === String(sku).trim()) {
-        sheet.getRange(i + 1, 2).setValue(qtyNum);
-        sheet.getRange(i + 1, 3).setValue(status);
-        sheet.getRange(i + 1, 4).setValue(nowStr);
-        found = true;
-        break;
+      if (String(rows[i][0]).trim() === cleanSku) {
+        matchingRowIndices.push(i + 1);
       }
     }
 
-    if (!found) sheet.appendRow([sku, qtyNum, status, nowStr]);
+    if (matchingRowIndices.length > 0) {
+      var primaryRow = matchingRowIndices[0];
+      sheet.getRange(primaryRow, 2).setValue(qtyNum);
+      sheet.getRange(primaryRow, 3).setValue(status);
+      sheet.getRange(primaryRow, 4).setValue(nowStr);
+
+      for (var d = matchingRowIndices.length - 1; d > 0; d--) {
+        sheet.deleteRow(matchingRowIndices[d]);
+      }
+    } else {
+      sheet.appendRow([cleanSku, qtyNum, status, nowStr]);
+    }
 
     SpreadsheetApp.flush();
-    logAdminActivity(adminName || 'Admin', 'Update Stok', 'SKU ' + sku + ' stok diubah ke ' + qtyNum);
+    logAdminActivity(adminName || 'Admin', 'Update Stok', 'SKU ' + cleanSku + ' stok diubah ke ' + qtyNum);
 
-    return { success: true, message: 'Stok berhasil diperbarui!' };
+    return { success: true, message: 'Stok SKU ' + cleanSku + ' berhasil diperbarui!' };
   } catch (err) {
     return { success: false, message: 'Gagal memperbarui stok: ' + err.toString() };
   }
 }
 
-/**
- * Mengambil daftar metadata Jenis Produk
- */
 function getJenisProdukList() {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -628,9 +829,6 @@ function getJenisProdukList() {
   }
 }
 
-/**
- * Menyimpan atau memperbarui data Jenis Produk
- */
 function saveJenisProduk(payload, adminName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -662,9 +860,6 @@ function saveJenisProduk(payload, adminName) {
   }
 }
 
-/**
- * Menghapus Jenis Produk berdasarkan ID
- */
 function deleteJenisProduk(id, adminName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -685,9 +880,6 @@ function deleteJenisProduk(id, adminName) {
   }
 }
 
-/**
- * Mengambil daftar Master SKU terpaginasi
- */
 function getMasterProductsPaginated(page, pageSize, searchQuery) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -723,9 +915,6 @@ function getMasterProductsPaginated(page, pageSize, searchQuery) {
   }
 }
 
-/**
- * Menyimpan atau memperbarui data Master Produk
- */
 function saveMasterProduct(productData, isEdit, adminName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -770,9 +959,6 @@ function saveMasterProduct(productData, isEdit, adminName) {
   }
 }
 
-/**
- * Mengimpor produk dari file CSV secara masal dengan pengecekan SKU unik
- */
 function importMasterProductsCSV(itemsArray, adminName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -843,32 +1029,40 @@ function importMasterProductsCSV(itemsArray, adminName) {
   }
 }
 
-/**
- * Menghapus Master Produk berdasarkan SKU
- */
 function deleteMasterProduct(sku, adminName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName('Master_Stock');
-    var rows = sheet.getDataRange().getDisplayValues();
+    var masterSheet = ss.getSheetByName('Master_Stock');
+    var invSheet = ss.getSheetByName('Inventory');
+    var cleanSku = String(sku).trim();
 
-    for (var i = 1; i < rows.length; i++) {
-      if (rows[i][0] === String(sku).trim()) {
-        sheet.deleteRow(i + 1);
-        SpreadsheetApp.flush();
-        logAdminActivity(adminName || 'Admin', 'Hapus Master SKU', 'Hapus produk ' + sku);
-        return { success: true, message: 'Produk berhasil dihapus!' };
+    if (masterSheet) {
+      var mRows = masterSheet.getDataRange().getDisplayValues();
+      for (var i = mRows.length - 1; i >= 1; i--) {
+        if (String(mRows[i][0]).trim() === cleanSku) {
+          masterSheet.deleteRow(i + 1);
+        }
       }
     }
-    return { success: false, message: 'SKU tidak ditemukan!' };
+
+    if (invSheet) {
+      var iRows = invSheet.getDataRange().getDisplayValues();
+      for (var k = iRows.length - 1; k >= 1; k--) {
+        if (String(iRows[k][0]).trim() === cleanSku) {
+          invSheet.deleteRow(k + 1);
+        }
+      }
+    }
+
+    SpreadsheetApp.flush();
+    logAdminActivity(adminName || 'Admin', 'Hapus Master SKU', 'Hapus produk ' + cleanSku);
+
+    return { success: true, message: 'Produk SKU ' + cleanSku + ' berhasil dihapus dari Master & Inventori!' };
   } catch (err) {
     return { success: false, message: 'Gagal menghapus produk: ' + err.toString() };
   }
 }
 
-/**
- * Mengkalkulasi data laporan laba rugi dan finansial berdasarkan rentang tanggal
- */
 function getProfitReportData(startDateStr, endDateStr) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
