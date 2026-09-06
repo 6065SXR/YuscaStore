@@ -1,0 +1,219 @@
+<script>
+  function initDashboard() {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success) renderDashboardData(res.data);
+        })
+        .getDashboardMetrics();
+    } else {
+      renderDashboardData({
+        netSales: 15200000,
+        totalOrders: 345,
+        returnedGoods: 750000,
+        canceledOrders: 12,
+        uniqueCustomers: 210,
+        avgOrderValue: 44000,
+        pendingPayments: 1100000,
+        topSellingBrand: 'Yusca NMD R1',
+        salesGrowth: {
+          labels: ['JAN', 'FEB', 'MAR', 'APR', 'JUL', 'AUG', 'SEP', 'NOV', 'DEC'],
+          sales: [6800, 8100, 9400, 7500, 8300, 8200, 10700, 8800, 10100]
+        },
+        profitTrend: {
+          labels: ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'DEC'],
+          netProfit: [0, 58000, 32000, 86000, 52000, 110000, 90000, 138000],
+          revenue: [10000, 70000, 45000, 105000, 68000, 130000, 115000, 160000]
+        },
+        criticalAlerts: [
+          { sku: 'SKU-SP-001', productName: 'Adidas Superstar - Size 42 (Black)', quantity: 3, status: 'Low Stock' },
+          { sku: 'SKU-SP-002', productName: 'Adidas Superstar - Size 43 (Black)', quantity: 2, status: 'Low Stock' }
+        ]
+      });
+    }
+  }
+
+  function renderDashboardData(data) {
+    document.getElementById('metricNetSales').textContent = 'Rp ' + data.netSales.toLocaleString('id-ID');
+    document.getElementById('metricTotalOrders').textContent = data.totalOrders;
+    document.getElementById('metricReturned').textContent = 'Rp ' + data.returnedGoods.toLocaleString('id-ID');
+    document.getElementById('metricCanceled').textContent = data.canceledOrders;
+    document.getElementById('metricCustomers').textContent = data.uniqueCustomers;
+    document.getElementById('metricAov').textContent = 'Rp ' + data.avgOrderValue.toLocaleString('id-ID');
+    document.getElementById('metricPending').textContent = 'Rp ' + data.pendingPayments.toLocaleString('id-ID');
+    document.getElementById('metricTopBrand').textContent = data.topSellingBrand;
+
+    var ctxSales = document.getElementById('salesGrowthChart').getContext('2d');
+    if (salesGrowthChartInstance) salesGrowthChartInstance.destroy();
+
+    var barColors = data.salesGrowth.sales.map(function(val, idx) {
+      return (idx === 2 || idx === 7) ? '#fb8c00' : '#00838f';
+    });
+
+    salesGrowthChartInstance = new Chart(ctxSales, {
+      type: 'bar',
+      data: {
+        labels: data.salesGrowth.labels,
+        datasets: [{
+          data: data.salesGrowth.sales,
+          backgroundColor: barColors,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+          x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+        }
+      }
+    });
+
+    var ctxProfit = document.getElementById('profitTrendChart').getContext('2d');
+    if (profitTrendChartInstance) profitTrendChartInstance.destroy();
+
+    profitTrendChartInstance = new Chart(ctxProfit, {
+      type: 'line',
+      data: {
+        labels: data.profitTrend.labels,
+        datasets: [
+          {
+            label: 'Net profit',
+            data: data.profitTrend.netProfit,
+            borderColor: '#00838f',
+            backgroundColor: 'rgba(0, 131, 143, 0.08)',
+            borderWidth: 2.5,
+            tension: 0.4,
+            pointRadius: 3,
+            fill: true
+          },
+          {
+            label: 'Revenue',
+            data: data.profitTrend.revenue,
+            borderColor: '#01579b',
+            borderWidth: 2,
+            borderDash: [4, 4],
+            tension: 0.4,
+            pointRadius: 0
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+          x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+        }
+      }
+    });
+
+    var tbody = document.getElementById('criticalStockTableBody');
+    tbody.innerHTML = '';
+    if (!data.criticalAlerts || data.criticalAlerts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center p-4 text-gray-400">Semua stok produk dalam kondisi aman.</td></tr>';
+      return;
+    }
+
+    for (var i = 0; i < data.criticalAlerts.length; i++) {
+      var item = data.criticalAlerts[i];
+      var tr = document.createElement('tr');
+      tr.className = 'hover:bg-gray-50/80 transition';
+      tr.innerHTML = '<td class="p-3 pl-4 flex items-center space-x-3">' +
+        '<span class="text-lg">👟</span>' +
+        '<div>' +
+          '<p class="font-semibold text-gray-800">' + item.productName + '</p>' +
+          '<p class="text-[11px] text-gray-400">' + item.sku + '</p>' +
+        '</div>' +
+      '</td>' +
+      '<td class="p-3 text-center font-bold text-gray-800">' + item.quantity + '</td>' +
+      '<td class="p-3 text-right pr-4">' +
+        '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-100">' + item.status + '</span>' +
+      '</td>';
+      tbody.appendChild(tr);
+    }
+  }
+
+  function loadProfitReport() {
+    var startDate = document.getElementById('profitStartDate').value;
+    var endDate = document.getElementById('profitEndDate').value;
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success) {
+            var d = res.data;
+            document.getElementById('profitRev').textContent = 'Rp ' + d.totalRevenue.toLocaleString('id-ID');
+            document.getElementById('profitCogs').textContent = 'Rp ' + d.estimatedCOGS.toLocaleString('id-ID');
+            document.getElementById('profitGross').textContent = 'Rp ' + d.grossProfit.toLocaleString('id-ID');
+            document.getElementById('profitNet').textContent = 'Rp ' + d.netProfit.toLocaleString('id-ID');
+          }
+        })
+        .getProfitReportData(startDate, endDate);
+    } else {
+      document.getElementById('profitRev').textContent = 'Rp 3.535.000';
+      document.getElementById('profitCogs').textContent = 'Rp 2.297.750';
+      document.getElementById('profitGross').textContent = 'Rp 1.237.250';
+      document.getElementById('profitNet').textContent = 'Rp 883.750';
+    }
+  }
+
+  function exportFinancialReportPDF() {
+    var printContainer = document.getElementById('printableReportContainer');
+    if (!printContainer) return;
+
+    var rev = document.getElementById('profitRev').textContent;
+    var cogs = document.getElementById('profitCogs').textContent;
+    var gross = document.getElementById('profitGross').textContent;
+    var net = document.getElementById('profitNet').textContent;
+    var netSales = document.getElementById('metricNetSales').textContent;
+    var totalOrders = document.getElementById('metricTotalOrders').textContent;
+
+    var startVal = document.getElementById('profitStartDate').value || 'Awal';
+    var endVal = document.getElementById('profitEndDate').value || 'Sekarang';
+    var dateStr = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    printContainer.innerHTML = 
+      '<div style="font-family: Inter, sans-serif; padding: 20px; color: #1e293b;">' +
+        '<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #006064; padding-bottom: 12px; margin-bottom: 20px;">' +
+          '<div>' +
+            '<h1 style="font-size: 24px; font-weight: 800; color: #006064; margin: 0;">⚡ Yusca STORE</h1>' +
+            '<p style="font-size: 12px; color: #64748b; margin: 2px 0 0 0;">LAPORAN FINANSIAL & E-COMMERCE EXECUTIVE</p>' +
+            '<p style="font-size: 11px; font-weight: 700; color: #00838f; margin-top: 4px;">Periode Filter: ' + startVal + ' s/d ' + endVal + '</p>' +
+          '</div>' +
+          '<div style="text-align: right;">' +
+            '<p style="font-size: 11px; color: #94a3b8; margin: 0;">Tanggal Cetak Document:</p>' +
+            '<p style="font-size: 13px; font-weight: 700; color: #00838f; margin: 0;">' + dateStr + '</p>' +
+          '</div>' +
+        '</div>' +
+
+        '<div style="margin-bottom: 24px;">' +
+          '<h3 style="font-size: 14px; font-weight: 700; color: #0f172a; border-left: 4px solid #00838f; padding-left: 8px; margin-bottom: 12px;">I. RINGKASAN FINANSIAL LABA RUGI</h3>' +
+          '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">' +
+            '<tr style="background-color: #f8fafc;"><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: 600;">Total Pendapatan Bersih</td><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: 700; color: #006064;">' + rev + '</td></tr>' +
+            '<tr><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: 600;">Estimasi HPP (65%)</td><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: 700; color: #475569;">' + cogs + '</td></tr>' +
+            '<tr style="background-color: #f8fafc;"><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: 600;">Laba Kotor</td><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: 700; color: #0369a1;">' + gross + '</td></tr>' +
+            '<tr style="background-color: #ecfdf5;"><td style="padding: 8px; border: 1px solid #a7f3d0; font-weight: 700; color: #065f46;">Laba Bersih (Net Profit)</td><td style="padding: 8px; border: 1px solid #a7f3d0; font-weight: 800; color: #059669; font-size: 14px;">' + net + '</td></tr>' +
+          '</table>' +
+        '</div>' +
+
+        '<div style="margin-bottom: 24px;">' +
+          '<h3 style="font-size: 14px; font-weight: 700; color: #0f172a; border-left: 4px solid #00838f; padding-left: 8px; margin-bottom: 12px;">II. INDIKATOR OPERASIONAL TOKO</h3>' +
+          '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">' +
+            '<tr><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: 600;">Total Penjualan Bersih (Net Sales)</td><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: 700;">' + netSales + '</td></tr>' +
+            '<tr style="background-color: #f8fafc;"><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: 600;">Total Pesanan Sukses</td><td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: 700;">' + totalOrders + ' Transaksi</td></tr>' +
+          '</table>' +
+        '</div>' +
+
+        '<div style="margin-top: 40px; text-align: right; font-size: 11px; color: #64748b;">' +
+          '<p>Disahkan oleh Sistem Otomatis Yusca STORE</p>' +
+          '<p style="margin-top: 35px; font-weight: 700; color: #006064;">( ' + (currentUser ? currentUser.name : 'Super Admin') + ' )</p>' +
+        '</div>' +
+      '</div>';
+
+    window.print();
+  }
+</script>
