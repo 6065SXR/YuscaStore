@@ -1,25 +1,34 @@
 /**
  * ============================================================================
- * ZETTBOT 3.1 - BACKEND BUSINESS LOGIC & API (SINGLE STORE)
- * File: code.gs
+ * ZETTBOT 3.1 - BACKEND BUSINESS LOGIC & API (Yusca STORE)
+ * File: Code.gs
  * Framework: Google Apps Script Web App
  * ============================================================================
  */
 
 var TIMEZONE = 'Asia/Jakarta';
 
+/**
+ * Endpoint utama Web App untuk merender antarmuka HTML
+ */
 function doGet(e) {
   return HtmlService.createTemplateFromFile('index')
     .evaluate()
-    .setTitle('ZETT STORE - Management & E-Commerce System')
+    .setTitle('Yusca STORE - Management & E-Commerce System')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+/**
+ * Helper function untuk menyertakan file modul HTML/CSS/JS pendukung
+ */
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
+/**
+ * Generasi ID Sekuensial berdasarkan tanggal dan penghitung harian
+ */
 function generateSequentialId(prefix, dateKey, countKey) {
   var props = PropertiesService.getScriptProperties();
   var todayStr = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd');
@@ -38,6 +47,29 @@ function generateSequentialId(prefix, dateKey, countKey) {
   return prefix + '-' + paddedNum;
 }
 
+/**
+ * Mencatat log aktivitas admin ke sheet Admin_Logs
+ */
+function logAdminActivity(adminName, actionType, details) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('Admin_Logs');
+    if (!sheet) {
+      setupDatabase();
+      sheet = ss.getSheetByName('Admin_Logs');
+    }
+    var logId = generateSequentialId('LOG', 'LOG_LAST_DATE', 'LOG_LAST_COUNT');
+    var nowStr = Utilities.formatDate(new Date(), TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+    sheet.appendRow([logId, adminName || 'Admin System', actionType, details, nowStr]);
+    SpreadsheetApp.flush();
+  } catch (err) {
+    Logger.log('Error logAdminActivity: ' + err.toString());
+  }
+}
+
+/**
+ * Otentikasi login pengguna (Admin & Pembeli)
+ */
 function loginUser(phone, password) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -64,6 +96,9 @@ function loginUser(phone, password) {
   }
 }
 
+/**
+ * Pendaftaran akun pembeli baru
+ */
 function registerBuyer(userData) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -107,6 +142,9 @@ function registerBuyer(userData) {
   }
 }
 
+/**
+ * Mengambil metrik analitik dashboard toko dan stok kritis
+ */
 function getDashboardMetrics() {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -163,7 +201,7 @@ function getDashboardMetrics() {
       }
     }
 
-    var topSellingBrand = 'Adidas NMD R1';
+    var topSellingBrand = 'Yusca NMD R1';
     if (topSku) {
       for (var m = 1; m < masterRows.length; m++) {
         if (masterRows[m][0] === topSku) {
@@ -223,6 +261,9 @@ function getDashboardMetrics() {
   }
 }
 
+/**
+ * Mengambil katalog produk terpaginasi dengan promo flash sale
+ */
 function getCatalogProducts(page, pageSize, categoryFilter, searchQuery) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -241,6 +282,12 @@ function getCatalogProducts(page, pageSize, categoryFilter, searchQuery) {
       stockMap[s] = (stockMap[s] || 0) + q;
     }
 
+    var flashConfig = {};
+    try {
+      var rawFlash = PropertiesService.getScriptProperties().getProperty('FLASH_SALE_CONFIG');
+      if (rawFlash) flashConfig = JSON.parse(rawFlash);
+    } catch (e) {}
+
     var allProducts = [];
     var search = (searchQuery || '').toLowerCase().trim();
     var category = (categoryFilter || 'All').trim();
@@ -257,8 +304,16 @@ function getCatalogProducts(page, pageSize, categoryFilter, searchQuery) {
       var price = parseFloat(row[6]) || 0;
       var stock = stockMap[sku] !== undefined ? stockMap[sku] : 0;
 
-      if (category !== 'All' && cat !== category) continue;
+      if (category !== 'All' && category !== 'Flash Sale' && cat !== category) continue;
       if (search && name.toLowerCase().indexOf(search) === -1 && sku.toLowerCase().indexOf(search) === -1) continue;
+
+      var flashData = flashConfig[sku] || null;
+      var isFlash = flashData ? !!flashData.isFlashSale : (m % 2 === 1);
+      var discPrice = (flashData && flashData.discountPrice) ? parseFloat(flashData.discountPrice) : Math.round(price * 0.8);
+      var sDate = (flashData && flashData.startDate) ? flashData.startDate : todayStr;
+      var eDate = (flashData && flashData.endDate) ? flashData.endDate : '2026-12-31';
+
+      if (category === 'Flash Sale' && !isFlash) continue;
 
       allProducts.push({
         sku: sku,
@@ -269,10 +324,10 @@ function getCatalogProducts(page, pageSize, categoryFilter, searchQuery) {
         imageUrl: img,
         price: price,
         stock: stock,
-        isFlashSale: (m % 2 === 1),
-        discountPrice: Math.round(price * 0.8),
-        startDate: todayStr,
-        endDate: '2026-12-31'
+        isFlashSale: isFlash,
+        discountPrice: discPrice,
+        startDate: sDate,
+        endDate: eDate
       });
     }
 
@@ -292,6 +347,24 @@ function getCatalogProducts(page, pageSize, categoryFilter, searchQuery) {
   }
 }
 
+/**
+ * Menyimpan konfigurasi promo Flash Sale ke Script Properties
+ */
+function saveFlashSaleBackend(flashConfig, adminName) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    props.setProperty('FLASH_SALE_CONFIG', JSON.stringify(flashConfig || {}));
+    SpreadsheetApp.flush();
+    logAdminActivity(adminName || 'Admin', 'Simpan Flash Sale', 'Memperbarui konfigurasi promo Flash Sale');
+    return { success: true, message: 'Konfigurasi Promo Flash Sale berhasil disimpan!' };
+  } catch (err) {
+    return { success: false, message: 'Gagal menyimpan Flash Sale: ' + err.toString() };
+  }
+}
+
+/**
+ * Memproses pesanan checkout pembeli dan pemotongan stok otomatis
+ */
 function submitOrder(payload) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -332,7 +405,7 @@ function submitOrder(payload) {
     SpreadsheetApp.flush();
 
     var adminPhone = '6281234567890';
-    var waMessage = 'Halo Admin ZETT STORE,%0A%0ASaya ingin konfirmasi pesanan baru:%0A' +
+    var waMessage = 'Halo Admin Yusca STORE,%0A%0ASaya ingin konfirmasi pesanan baru:%0A' +
       '- *Order ID:* ' + orderId + '%0A' +
       '- *Customer ID:* ' + buyerUserId + '%0A' +
       '- *Total Bayar:* Rp ' + totalPrice.toLocaleString('id-ID') + '%0A' +
@@ -351,6 +424,9 @@ function submitOrder(payload) {
   }
 }
 
+/**
+ * Mengambil daftar pesanan terpaginasi
+ */
 function getOrdersPaginated(page, pageSize, statusFilter, searchQuery) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -390,18 +466,52 @@ function getOrdersPaginated(page, pageSize, statusFilter, searchQuery) {
   }
 }
 
-function updateOrderStatus(orderId, newStatus) {
+/**
+ * Memperbarui status pesanan dan menghasilkan tautan notifikasi WhatsApp
+ */
+function updateOrderStatus(orderId, newStatus, adminName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('Orders');
+    var userSheet = ss.getSheetByName('Users');
     if (!sheet) return { success: false, message: 'Sheet Orders tidak ditemukan.' };
 
     var rows = sheet.getDataRange().getDisplayValues();
+    var buyerPhone = '6281234567890';
+    var buyerUserId = '';
+
     for (var i = 1; i < rows.length; i++) {
       if (rows[i][0] === String(orderId).trim()) {
         sheet.getRange(i + 1, 6).setValue(newStatus);
+        buyerUserId = rows[i][1];
+
+        if (userSheet && buyerUserId) {
+          var userRows = userSheet.getDataRange().getDisplayValues();
+          for (var u = 1; u < userRows.length; u++) {
+            if (userRows[u][4] === buyerUserId) {
+              buyerPhone = userRows[u][1];
+              if (buyerPhone.indexOf('0') === 0) buyerPhone = '62' + buyerPhone.slice(1);
+              break;
+            }
+          }
+        }
+
         SpreadsheetApp.flush();
-        return { success: true, message: 'Status pesanan berhasil diubah menjadi ' + newStatus };
+        logAdminActivity(adminName || 'Admin', 'Update Order Status', 'Order ' + orderId + ' diubah ke status ' + newStatus);
+
+        var waMsg = encodeURIComponent(
+          'Halo Kak, kami dari *Yusca STORE*! ⚡%0A%0A' +
+          'Status pesanan Anda dengan *Order ID: ' + orderId + '* telah diperbarui menjadi:%0A' +
+          '👉 *' + newStatus.toUpperCase() + '*%0A%0A' +
+          'Terima kasih telah berbelanja di Yusca STORE! Jika ada pertanyaan silakan hubungi kami.'
+        );
+        var waUrl = 'https://api.whatsapp.com/send?phone=' + buyerPhone + '&text=' + waMsg;
+
+        return {
+          success: true,
+          message: 'Status pesanan ' + orderId + ' berhasil diubah menjadi ' + newStatus,
+          waUrl: waUrl
+        };
       }
     }
     return { success: false, message: 'Order ID tidak ditemukan!' };
@@ -410,6 +520,9 @@ function updateOrderStatus(orderId, newStatus) {
   }
 }
 
+/**
+ * Mengambil data inventori stok produk
+ */
 function getInventoryPaginated(page, pageSize, searchQuery) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -454,7 +567,10 @@ function getInventoryPaginated(page, pageSize, searchQuery) {
   }
 }
 
-function updateInventoryQuantity(sku, newQuantity) {
+/**
+ * Memperbarui jumlah stok produk
+ */
+function updateInventoryQuantity(sku, newQuantity, adminName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('Inventory');
@@ -478,12 +594,17 @@ function updateInventoryQuantity(sku, newQuantity) {
     if (!found) sheet.appendRow([sku, qtyNum, status, nowStr]);
 
     SpreadsheetApp.flush();
+    logAdminActivity(adminName || 'Admin', 'Update Stok', 'SKU ' + sku + ' stok diubah ke ' + qtyNum);
+
     return { success: true, message: 'Stok berhasil diperbarui!' };
   } catch (err) {
     return { success: false, message: 'Gagal memperbarui stok: ' + err.toString() };
   }
 }
 
+/**
+ * Mengambil daftar metadata Jenis Produk
+ */
 function getJenisProdukList() {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -507,7 +628,10 @@ function getJenisProdukList() {
   }
 }
 
-function saveJenisProduk(payload) {
+/**
+ * Menyimpan atau memperbarui data Jenis Produk
+ */
+function saveJenisProduk(payload, adminName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('Jenis_Produk');
@@ -521,6 +645,7 @@ function saveJenisProduk(payload) {
           sheet.getRange(i + 1, 3).setValue(payload.name);
           sheet.getRange(i + 1, 4).setValue(payload.description);
           SpreadsheetApp.flush();
+          logAdminActivity(adminName || 'Admin', 'Edit Jenis Produk', 'Ubah ' + payload.id + ' (' + payload.name + ')');
           return { success: true, message: 'Jenis Produk berhasil diperbarui!' };
         }
       }
@@ -529,13 +654,18 @@ function saveJenisProduk(payload) {
     var nextId = generateSequentialId('JPN', 'JPN_LAST_DATE', 'JPN_LAST_COUNT');
     sheet.appendRow([nextId, payload.type, payload.name, payload.description, nowStr]);
     SpreadsheetApp.flush();
+    logAdminActivity(adminName || 'Admin', 'Tambah Jenis Produk', 'Tambah baru ' + nextId + ' (' + payload.name + ')');
+
     return { success: true, message: 'Jenis Produk baru berhasil ditambahkan!' };
   } catch (err) {
     return { success: false, message: 'Gagal menyimpan Jenis Produk: ' + err.toString() };
   }
 }
 
-function deleteJenisProduk(id) {
+/**
+ * Menghapus Jenis Produk berdasarkan ID
+ */
+function deleteJenisProduk(id, adminName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('Jenis_Produk');
@@ -545,6 +675,7 @@ function deleteJenisProduk(id) {
       if (rows[i][0] === String(id).trim()) {
         sheet.deleteRow(i + 1);
         SpreadsheetApp.flush();
+        logAdminActivity(adminName || 'Admin', 'Hapus Jenis Produk', 'Hapus ID ' + id);
         return { success: true, message: 'Jenis Produk berhasil dihapus!' };
       }
     }
@@ -554,6 +685,9 @@ function deleteJenisProduk(id) {
   }
 }
 
+/**
+ * Mengambil daftar Master SKU terpaginasi
+ */
 function getMasterProductsPaginated(page, pageSize, searchQuery) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -589,7 +723,10 @@ function getMasterProductsPaginated(page, pageSize, searchQuery) {
   }
 }
 
-function saveMasterProduct(productData, isEdit) {
+/**
+ * Menyimpan atau memperbarui data Master Produk
+ */
+function saveMasterProduct(productData, isEdit, adminName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('Master_Stock');
@@ -602,10 +739,11 @@ function saveMasterProduct(productData, isEdit) {
           sheet.getRange(i + 1, 2).setValue(productData.productName);
           sheet.getRange(i + 1, 3).setValue(productData.description);
           sheet.getRange(i + 1, 4).setValue(productData.category);
-          sheet.getRange(i + 1, 5).setValue(productData.brand || 'Adidas');
+          sheet.getRange(i + 1, 5).setValue(productData.brand || 'Yusca');
           sheet.getRange(i + 1, 6).setValue(productData.imageUrl);
           sheet.getRange(i + 1, 7).setValue(parseFloat(productData.price) || 0);
           SpreadsheetApp.flush();
+          logAdminActivity(adminName || 'Admin', 'Edit Master SKU', 'Perbarui produk ' + sku + ' (' + productData.productName + ')');
           return { success: true, message: 'Produk berhasil diperbarui!' };
         }
       }
@@ -619,11 +757,12 @@ function saveMasterProduct(productData, isEdit) {
         productData.productName,
         productData.description,
         productData.category,
-        productData.brand || 'Adidas',
+        productData.brand || 'Yusca',
         productData.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500',
         parseFloat(productData.price) || 0
       ]);
       SpreadsheetApp.flush();
+      logAdminActivity(adminName || 'Admin', 'Tambah Master SKU', 'Tambah produk baru ' + sku + ' (' + productData.productName + ')');
       return { success: true, message: 'Produk baru berhasil ditambahkan!' };
     }
   } catch (err) {
@@ -631,7 +770,83 @@ function saveMasterProduct(productData, isEdit) {
   }
 }
 
-function deleteMasterProduct(sku) {
+/**
+ * Mengimpor produk dari file CSV secara masal dengan pengecekan SKU unik
+ */
+function importMasterProductsCSV(itemsArray, adminName) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var masterSheet = ss.getSheetByName('Master_Stock');
+    var invSheet = ss.getSheetByName('Inventory');
+
+    if (!masterSheet) return { success: false, message: 'Sheet Master_Stock tidak ditemukan!' };
+
+    var masterRows = masterSheet.getDataRange().getDisplayValues();
+    var existingSkus = {};
+    for (var i = 1; i < masterRows.length; i++) {
+      if (masterRows[i][0]) existingSkus[String(masterRows[i][0]).toUpperCase().trim()] = true;
+    }
+
+    var nowStr = Utilities.formatDate(new Date(), TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
+    var newMasterRows = [];
+    var newInvRows = [];
+    var addedCount = 0;
+    var skippedCount = 0;
+
+    for (var k = 0; k < itemsArray.length; k++) {
+      var item = itemsArray[k];
+      var rawSku = String(item.sku || '').trim();
+      if (!rawSku) continue;
+
+      var upperSku = rawSku.toUpperCase();
+      if (existingSkus[upperSku]) {
+        skippedCount++;
+      } else {
+        existingSkus[upperSku] = true;
+        addedCount++;
+        newMasterRows.push([
+          rawSku,
+          String(item.productName || 'Produk Baru').trim(),
+          String(item.description || '').trim(),
+          String(item.category || 'Sepatu Pria').trim(),
+          String(item.brand || 'Yusca').trim(),
+          String(item.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500').trim(),
+          parseFloat(item.price) || 0
+        ]);
+
+        newInvRows.push([
+          rawSku,
+          0,
+          'Low Stock',
+          nowStr
+        ]);
+      }
+    }
+
+    if (newMasterRows.length > 0) {
+      masterSheet.getRange(masterSheet.getLastRow() + 1, 1, newMasterRows.length, newMasterRows[0].length).setValues(newMasterRows);
+      if (invSheet) {
+        invSheet.getRange(invSheet.getLastRow() + 1, 1, newInvRows.length, newInvRows[0].length).setValues(newInvRows);
+      }
+      SpreadsheetApp.flush();
+      logAdminActivity(adminName || 'Admin', 'Import CSV Master', 'Import ' + addedCount + ' produk baru (' + skippedCount + ' SKU duplikat dilewati)');
+    }
+
+    return {
+      success: true,
+      addedCount: addedCount,
+      skippedCount: skippedCount,
+      message: 'Import Selesai: ' + addedCount + ' produk baru berhasil ditambahkan. ' + skippedCount + ' SKU duplikat dilewati!'
+    };
+  } catch (err) {
+    return { success: false, message: 'Gagal mengimpor produk CSV: ' + err.toString() };
+  }
+}
+
+/**
+ * Menghapus Master Produk berdasarkan SKU
+ */
+function deleteMasterProduct(sku, adminName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName('Master_Stock');
@@ -641,6 +856,7 @@ function deleteMasterProduct(sku) {
       if (rows[i][0] === String(sku).trim()) {
         sheet.deleteRow(i + 1);
         SpreadsheetApp.flush();
+        logAdminActivity(adminName || 'Admin', 'Hapus Master SKU', 'Hapus produk ' + sku);
         return { success: true, message: 'Produk berhasil dihapus!' };
       }
     }
@@ -650,6 +866,9 @@ function deleteMasterProduct(sku) {
   }
 }
 
+/**
+ * Mengkalkulasi data laporan laba rugi dan finansial berdasarkan rentang tanggal
+ */
 function getProfitReportData(startDateStr, endDateStr) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
