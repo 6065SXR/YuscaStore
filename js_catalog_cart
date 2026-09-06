@@ -1,0 +1,296 @@
+<script>
+  function handleCatalogSearch(e) {
+    filterCatalogCategory();
+  }
+
+  function loadCatalog(page) {
+    currentCatalogPage = page || 1;
+    var query = document.getElementById('catalogSearchInput') ? document.getElementById('catalogSearchInput').value : '';
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success) {
+            cachedCatalogItems = res.items;
+            renderGroupedCatalogSliders(res.items);
+            filterCatalogCategory();
+          }
+        })
+        .getCatalogProducts(currentCatalogPage, 30, 'All', query);
+    } else {
+      var todayStr = new Date().toISOString().slice(0, 10);
+      var mockItems = [
+        { sku: 'SKU-SP-001', productName: 'Adidas Superstar 42', category: 'Sepatu Pria', brand: 'Adidas', price: 1250000, stock: 3, isFlashSale: true, discountPrice: 999000, startDate: todayStr, endDate: '2026-12-31', imageUrl: 'https://images.unsplash.com/photo-1582588678413-dbf45f4823e9?w=500' },
+        { sku: 'SKU-NMD-001', productName: 'Adidas NMD R1 PK', category: 'Sepatu Pria', brand: 'Adidas', price: 2100000, stock: 14, isFlashSale: false, startDate: todayStr, endDate: '2026-12-31', imageUrl: 'https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?w=500' },
+        { sku: 'SKU-UB-001', productName: 'Ultraboost Light Women', category: 'Sepatu Lari', brand: 'Adidas', price: 2800000, stock: 8, isFlashSale: true, discountPrice: 2250000, startDate: todayStr, endDate: '2026-12-31', imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500' },
+        { sku: 'SKU-ACC-001', productName: 'Waist Bag Sporty', category: 'Aksesoris', brand: 'Nike', price: 185000, stock: 25, isFlashSale: true, discountPrice: 120000, startDate: todayStr, endDate: '2026-12-31', imageUrl: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500' },
+        { sku: 'SKU-APP-001', productName: 'AeroReady Jersey', category: 'Aksesoris', brand: 'Puma', price: 350000, stock: 18, isFlashSale: false, startDate: todayStr, endDate: '2026-12-31', imageUrl: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500' }
+      ];
+      cachedCatalogItems = mockItems;
+      renderGroupedCatalogSliders(mockItems);
+      filterCatalogCategory();
+    }
+  }
+
+  function renderGroupedCatalogSliders(items) {
+    var flashSlider = document.getElementById('sliderFlashSale');
+    var priaSlider = document.getElementById('sliderPria');
+    var wanitaSlider = document.getElementById('sliderWanita');
+    var anakSlider = document.getElementById('sliderAnakAksesoris');
+
+    if (!flashSlider || !priaSlider) return;
+
+    flashSlider.innerHTML = '';
+    priaSlider.innerHTML = '';
+    wanitaSlider.innerHTML = '';
+    anakSlider.innerHTML = '';
+
+    var todayStr = new Date().toISOString().slice(0, 10);
+
+    for (var i = 0; i < items.length; i++) {
+      var p = items[i];
+
+      var isDateValid = true;
+      if (p.startDate && p.startDate > todayStr) isDateValid = false;
+      if (p.endDate && p.endDate < todayStr) isDateValid = false;
+
+      if (p.isFlashSale && isDateValid) {
+        flashSlider.appendChild(createCompactProductCard(p, true));
+      }
+
+      if (p.category === 'Sepatu Pria') {
+        priaSlider.appendChild(createCompactProductCard(p, false));
+      } else if (p.category === 'Sepatu Lari') {
+        wanitaSlider.appendChild(createCompactProductCard(p, false));
+      } else {
+        anakSlider.appendChild(createCompactProductCard(p, false));
+      }
+    }
+  }
+
+  function createCompactProductCard(p, isFlash) {
+    var card = document.createElement('div');
+    card.className = 'w-36 sm:w-44 flex-shrink-0 snap-start bg-white rounded-xl shadow-xs border border-gray-100 overflow-hidden flex flex-col justify-between hover:shadow-md transition';
+    
+    var displayPrice = isFlash && p.discountPrice ? p.discountPrice : p.price;
+    var originalPriceHtml = isFlash && p.discountPrice ? '<p class="text-[9px] text-gray-400 line-through">Rp ' + p.price.toLocaleString('id-ID') + '</p>' : '';
+    
+    card.innerHTML = '<div class="h-28 sm:h-32 bg-gray-100 relative overflow-hidden">' +
+      '<img src="' + (p.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500') + '" class="w-full h-full object-cover">' +
+      (isFlash ? '<span class="absolute top-1.5 left-1.5 bg-amber-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-xs">⚡ SALE</span>' : '') +
+      '<span class="absolute top-1.5 right-1.5 bg-black/60 text-white text-[9px] font-medium px-1.5 py-0.5 rounded backdrop-blur-xs">' + (p.brand || p.category) + '</span>' +
+    '</div>' +
+    '<div class="p-2.5 flex-1 flex flex-col justify-between space-y-2">' +
+      '<div>' +
+        '<h4 class="font-bold text-gray-800 text-xs line-clamp-1">' + p.productName + '</h4>' +
+        originalPriceHtml +
+        '<p class="text-xs font-extrabold text-teal-700 mt-0.5">Rp ' + displayPrice.toLocaleString('id-ID') + '</p>' +
+      '</div>' +
+      '<div class="flex items-center justify-between pt-1.5 border-t border-gray-50 text-[10px]">' +
+        '<span class="text-gray-400">Stok: <b class="text-gray-700">' + p.stock + '</b></span>' +
+        '<button onclick="addToCart(\'' + p.sku + '\', \'' + p.productName.replace(/'/g, "\\'") + '\', ' + displayPrice + ')" class="bg-zett-teal hover:bg-teal-800 text-white text-[10px] px-2 py-1 rounded-md transition font-semibold">' +
+          '+ Cart' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+
+    return card;
+  }
+
+  function filterCatalogCategory(categoryOverride) {
+    var catSelect = document.getElementById('catalogCategorySelect');
+    if (categoryOverride !== undefined && catSelect) {
+      catSelect.value = categoryOverride;
+    }
+
+    var selectedCat = catSelect ? catSelect.value : 'All';
+    var searchQuery = (document.getElementById('catalogSearchInput') ? document.getElementById('catalogSearchInput').value : '').toLowerCase().trim();
+
+    var sliderGroups = document.getElementById('catalogSliderGroups');
+    var container = document.getElementById('filteredCatalogContainer');
+    var label = document.getElementById('filteredCatalogLabel');
+    var grid = document.getElementById('catalogGrid');
+
+    if (!container || !grid) return;
+
+    if (selectedCat === 'All' && searchQuery === '') {
+      if (sliderGroups) sliderGroups.classList.remove('hidden');
+      container.classList.add('hidden');
+      return;
+    }
+
+    if (sliderGroups) sliderGroups.classList.add('hidden');
+    container.classList.remove('hidden');
+
+    var labelText = 'Hasil Filter Produk';
+    if (selectedCat !== 'All') labelText = 'Kategori: ' + selectedCat;
+    if (searchQuery) labelText += ' (Kata Kunci: "' + searchQuery + '")';
+    label.textContent = labelText;
+
+    grid.innerHTML = '';
+
+    var todayStr = new Date().toISOString().slice(0, 10);
+
+    var filtered = cachedCatalogItems.filter(function(item) {
+      var matchCat = true;
+      if (selectedCat === 'Flash Sale') {
+        matchCat = item.isFlashSale;
+        if (item.startDate && item.startDate > todayStr) matchCat = false;
+        if (item.endDate && item.endDate < todayStr) matchCat = false;
+      } else if (selectedCat !== 'All') {
+        matchCat = (item.category === selectedCat);
+      }
+
+      var matchSearch = true;
+      if (searchQuery) {
+        var nameMatch = item.productName ? item.productName.toLowerCase().indexOf(searchQuery) !== -1 : false;
+        var skuMatch = item.sku ? item.sku.toLowerCase().indexOf(searchQuery) !== -1 : false;
+        var brandMatch = item.brand ? item.brand.toLowerCase().indexOf(searchQuery) !== -1 : false;
+        var catMatch = item.category ? item.category.toLowerCase().indexOf(searchQuery) !== -1 : false;
+        matchSearch = nameMatch || skuMatch || brandMatch || catMatch;
+      }
+
+      return matchCat && matchSearch;
+    });
+
+    if (filtered.length === 0) {
+      grid.innerHTML = '<div class="col-span-full text-center py-10 text-gray-400 text-xs">Tidak ada produk yang sesuai dengan pencarian / kategori.</div>';
+      return;
+    }
+
+    filtered.forEach(function(p) {
+      grid.appendChild(createCompactProductCard(p, selectedCat === 'Flash Sale' || p.isFlashSale));
+    });
+  }
+
+  function resetCatalogFilter() {
+    if (document.getElementById('catalogSearchInput')) document.getElementById('catalogSearchInput').value = '';
+    if (document.getElementById('catalogCategorySelect')) document.getElementById('catalogCategorySelect').value = 'All';
+    filterCatalogCategory('All');
+  }
+
+  function addToCart(sku, name, price) {
+    for (var i = 0; i < cart.length; i++) {
+      if (cart[i].sku === sku) {
+        cart[i].qty++;
+        updateCartUI();
+        showToast('Jumlah produk ditambahkan ke keranjang.', 'info');
+        return;
+      }
+    }
+    cart.push({ sku: sku, name: name, price: price, qty: 1 });
+    updateCartUI();
+    showToast(name + ' masuk ke keranjang.', 'success');
+  }
+
+  function updateCartUI() {
+    var totalItems = 0;
+    var totalPrice = 0;
+    var container = document.getElementById('cartItemsContainer');
+    container.innerHTML = '';
+
+    if (cart.length === 0) {
+      container.innerHTML = '<div class="text-center py-10 text-gray-400 text-xs">Keranjang Anda masih kosong.</div>';
+    } else {
+      for (var i = 0; i < cart.length; i++) {
+        var item = cart[i];
+        totalItems += item.qty;
+        totalPrice += item.price * item.qty;
+
+        var div = document.createElement('div');
+        div.className = 'p-3 bg-gray-50 rounded-lg flex items-center justify-between text-xs border border-gray-100';
+        div.innerHTML = '<div>' +
+          '<p class="font-bold text-gray-800">' + item.name + '</p>' +
+          '<p class="text-gray-400 font-mono text-[10px]">' + item.sku + '</p>' +
+          '<p class="text-teal-700 font-semibold mt-1">Rp ' + item.price.toLocaleString('id-ID') + ' x ' + item.qty + '</p>' +
+        '</div>' +
+        '<div class="flex items-center space-x-1.5">' +
+          '<button onclick="changeCartQty(' + i + ', -1)" class="w-6 h-6 bg-white border rounded text-gray-600 font-bold hover:bg-gray-100">-</button>' +
+          '<span class="w-6 text-center font-bold">' + item.qty + '</span>' +
+          '<button onclick="changeCartQty(' + i + ', 1)" class="w-6 h-6 bg-white border rounded text-gray-600 font-bold hover:bg-gray-100">+</button>' +
+        '</div>';
+        container.appendChild(div);
+      }
+    }
+
+    document.getElementById('cartBadge').textContent = totalItems;
+    document.getElementById('cartTotalPrice').textContent = 'Rp ' + totalPrice.toLocaleString('id-ID');
+    document.getElementById('checkoutTotalDisplay').value = 'Rp ' + totalPrice.toLocaleString('id-ID');
+
+    var fabBadge = document.getElementById('mobileFabBadge');
+    if (fabBadge) {
+      if (totalItems > 0) {
+        fabBadge.textContent = totalItems;
+        fabBadge.classList.remove('hidden');
+      } else {
+        fabBadge.classList.add('hidden');
+      }
+    }
+  }
+
+  function changeCartQty(index, delta) {
+    cart[index].qty += delta;
+    if (cart[index].qty <= 0) cart.splice(index, 1);
+    updateCartUI();
+  }
+
+  function openCartDrawer() { openModal('cartDrawer'); }
+  function closeCartDrawer() { closeModal('cartDrawer'); }
+
+  function proceedToCheckout() {
+    if (cart.length === 0) {
+      showToast('Keranjang belanja Anda masih kosong!', 'warning');
+      return;
+    }
+    if (!currentUser) {
+      showToast('Silakan login terlebih dahulu!', 'warning');
+      closeCartDrawer();
+      updateAuthUI();
+      return;
+    }
+    closeCartDrawer();
+    openModal('checkoutModal');
+  }
+
+  function confirmSubmitOrder() {
+    var bank = document.getElementById('checkoutBankSelect').value;
+    var total = 0;
+    for (var i = 0; i < cart.length; i++) total += cart[i].price * cart[i].qty;
+
+    var payload = {
+      buyerUserId: currentUser.userId,
+      items: cart,
+      totalPrice: total,
+      bankName: bank
+    };
+
+    var btn = document.getElementById('btnSubmitOrder');
+    btn.disabled = true;
+    btn.textContent = 'Memproses Pesanan...';
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          btn.disabled = false;
+          btn.textContent = 'Kirim Pesanan & Konfirmasi WhatsApp';
+          if (res.success) {
+            cart = [];
+            updateCartUI();
+            closeModal('checkoutModal');
+            showToast('Pesanan berhasil dibuat (' + res.orderId + ')!', 'success');
+            window.open(res.waUrl, '_blank');
+          } else {
+            showToast(res.message, 'error');
+          }
+        })
+        .submitOrder(payload);
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Kirim Pesanan & Konfirmasi WhatsApp';
+      cart = [];
+      updateCartUI();
+      closeModal('checkoutModal');
+      showToast('Simulasi checkout berhasil! Membuka WhatsApp konfirmasi...', 'success');
+    }
+  }
+</script>
