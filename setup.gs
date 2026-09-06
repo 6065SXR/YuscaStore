@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * ZETTBOT 3.1 - DATABASE SETUP & SAFE MIGRATION SYSTEM (SINGLE STORE)
+ * ZETTBOT 3.1 - DATABASE SETUP & SAFE MIGRATION SYSTEM (Yusca STORE)
  * File: setup.gs
  * Framework: Google Apps Script
  * ============================================================================
@@ -11,14 +11,15 @@ function setupDatabase() {
   var timezone = 'Asia/Jakarta';
   var nowStr = Utilities.formatDate(new Date(), timezone, 'dd/MM/yyyy HH:mm:ss');
 
-  // Skema Tabel & Header (Single Store Inventory & Jenis Produk)
+  // Skema Tabel & Header (Yusca Store Inventory & Jenis Produk)
   var schema = {
     'Users': ['Name', 'Phone', 'Password', 'Role', 'UserID', 'DateCreated'],
     'Master_Stock': ['SKU', 'ProductName', 'Description', 'Category', 'Brand', 'ImageURL', 'Price'],
     'Inventory': ['SKU', 'Quantity', 'Status', 'DateUpdated'],
     'Jenis_Produk': ['ID', 'Type', 'Name', 'Description', 'DateCreated'],
     'Orders': ['OrderID', 'BuyerUserID', 'SKUs', 'Quantities', 'TotalPrice', 'Status', 'PaymentProofImage', 'DateOrdered', 'TransactionID'],
-    'Transactions': ['TransactionID', 'OrderID', 'Amount', 'Type', 'Date', 'ReferenceNote']
+    'Transactions': ['TransactionID', 'OrderID', 'Amount', 'Type', 'Date', 'ReferenceNote'],
+    'Admin_Logs': ['LogID', 'AdminName', 'ActionType', 'Details', 'Timestamp']
   };
 
   for (var sheetName in schema) {
@@ -97,7 +98,9 @@ function setupDatabase() {
   props.setProperty('TRX_LAST_COUNT', '4');
   props.setProperty('JPN_LAST_DATE', todayDateStr);
   props.setProperty('JPN_LAST_COUNT', '8');
+  props.setProperty('LOG_LAST_DATE', todayDateStr);
+  props.setProperty('LOG_LAST_COUNT', '0');
 
   SpreadsheetApp.flush();
-  Logger.log('Inisialisasi Database ZETT STORE (Single Store) Selesai!');
+  Logger.log('Inisialisasi Database Yusca STORE Selesai!');
 }
