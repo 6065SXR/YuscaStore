@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ZETT STORE - Management & E-Commerce System</title>
+  <title>Yusca STORE - Management & E-Commerce System</title>
   <!-- Tailwind CSS & Google Fonts -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -22,7 +22,7 @@
         ⚡
       </div>
       <div class="space-y-1">
-        <h1 class="text-3xl font-extrabold tracking-widest text-white">ZETT STORE</h1>
+        <h1 class="text-3xl font-extrabold tracking-widest text-white">Yusca STORE</h1>
         <p class="text-xs text-teal-300 font-medium tracking-wide">E-COMMERCE & STOCK SYSTEM</p>
       </div>
       <div class="w-36 h-1 bg-teal-950/80 rounded-full mx-auto overflow-hidden border border-teal-800/40 mt-6">
@@ -39,7 +39,7 @@
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-zett-teal text-white text-3xl shadow-lg shadow-teal-900/30">
           ⚡
         </div>
-        <h1 class="text-2xl font-bold text-gray-900 tracking-wide">ZETT STORE</h1>
+        <h1 class="text-2xl font-bold text-gray-900 tracking-wide">Yusca STORE</h1>
         <p class="text-xs text-gray-500 font-medium">Management & E-Commerce System</p>
       </div>
 
@@ -109,16 +109,14 @@
   <!-- ================= MAIN APP WRAPPER ================= -->
   <div id="appWrapper" class="hidden flex-1 flex flex-col overflow-hidden">
 
-    <!-- TOPBAR HEADER (SINGLE STORE NO BRANCH SELECTOR & NO HAMBURGER) -->
     <header class="bg-zett-header text-white h-14 flex items-center justify-between px-4 z-20 shadow-md shrink-0">
       <div class="flex items-center space-x-3">
         <div class="flex items-center space-x-2 font-bold text-lg tracking-wider">
           <span class="text-xl">⚡</span>
-          <span>ZETT STORE</span>
+          <span>Yusca STORE</span>
         </div>
       </div>
 
-      <!-- Header Right Items -->
       <div class="flex items-center space-x-3 sm:space-x-4 text-xs sm:text-sm">
         <button class="p-2 hover:bg-black/10 rounded-full relative transition">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
@@ -145,10 +143,8 @@
       </div>
     </header>
 
-    <!-- WRAPPER BODY (DESKTOP SIDEBAR + MAIN CONTENT AREA) -->
     <div class="flex-1 flex overflow-hidden relative">
 
-      <!-- DESKTOP SIDEBAR -->
       <aside id="sidebar" class="hidden md:flex bg-zett-teal text-teal-50 w-64 flex-col shrink-0 transition-all duration-300 z-10 shadow-xl overflow-y-auto scrollbar-thin">
         <div class="p-4 border-b border-teal-700/60 flex items-center space-x-3 bg-teal-900/30">
           <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold text-white shadow-inner">
@@ -156,12 +152,11 @@
           </div>
           <div class="overflow-hidden">
             <h4 id="sidebarUserName" class="font-bold text-sm text-white truncate">User</h4>
-            <p id="sidebarBranchName" class="text-xs text-teal-200 truncate">ZETT STORE Official</p>
+            <p id="sidebarBranchName" class="text-xs text-teal-200 truncate">Yusca STORE Official</p>
           </div>
         </div>
 
         <nav class="p-3 space-y-1 text-sm font-medium">
-          <!-- ADMIN NAVIGATION GROUP -->
           <div id="adminNavGroup">
             <button onclick="switchView('catalog')" id="nav-catalog" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-teal-700/50 transition">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
@@ -184,7 +179,6 @@
             </button>
           </div>
 
-          <!-- UNIVERSAL & CUSTOMER DESKTOP NAVIGATION -->
           <div id="customerNavGroup" class="space-y-1">
             <button onclick="switchView('catalog')" id="nav-customer-catalog" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-teal-700/50 transition">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
@@ -217,7 +211,6 @@
         </nav>
       </aside>
 
-      <!-- MAIN CONTENT VIEWS CONTAINER -->
       <main class="flex-1 overflow-y-auto p-3 sm:p-6 pb-20 md:pb-6 scrollbar-thin">
 
         <!-- ================= VIEW 1: LAPORAN & DASHBOARD UNIFIED ================= -->
@@ -244,7 +237,6 @@
             </div>
           </div>
 
-          <!-- 1. RINGKASAN METRIK FINANSIAL & LABA RUGI -->
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
               <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Pendapatan</p>
@@ -264,7 +256,6 @@
             </div>
           </div>
 
-          <!-- 2. 8 KEY METRICS CARDS -->
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div class="bg-white rounded-xl p-3.5 shadow-xs border border-gray-100 flex items-center space-x-3">
               <div class="w-10 h-10 rounded-lg bg-teal-700 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">💵</div>
@@ -326,12 +317,11 @@
               <div class="w-10 h-10 rounded-lg bg-teal-400 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">🛍️</div>
               <div class="overflow-hidden">
                 <p class="text-[10px] font-bold text-gray-400 tracking-wider uppercase">TOP SELLING BRAND</p>
-                <h3 id="metricTopBrand" class="text-xs sm:text-base font-bold text-gray-800 truncate">Adidas NMD R1</h3>
+                <h3 id="metricTopBrand" class="text-xs sm:text-base font-bold text-gray-800 truncate">Yusca NMD R1</h3>
               </div>
             </div>
           </div>
 
-          <!-- 3. GRAFIK BULANAN -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-white p-4 sm:p-5 rounded-xl shadow-xs border border-gray-100">
               <h4 class="font-bold text-gray-800 text-xs sm:text-sm mb-4">Bulanan Sales Growth</h4>
@@ -350,7 +340,6 @@
             </div>
           </div>
 
-          <!-- 4. CRITICAL STOCK ALERTS -->
           <div class="bg-white rounded-xl shadow-xs border border-gray-100 overflow-hidden">
             <div class="p-4 border-b border-gray-100 flex justify-between items-center">
               <h4 class="font-bold text-gray-800 text-xs sm:text-sm">Critical Stock Alerts</h4>
@@ -371,15 +360,15 @@
           </div>
         </section>
 
-        <!-- ================= VIEW 2: PUBLIC CATALOG (UNIVERSAL FLASH SALE SLIDER) ================= -->
+        <!-- ================= VIEW 2: PUBLIC CATALOG ================= -->
         <section id="view-catalog" class="hidden space-y-6">
           <div class="bg-white p-3 sm:p-4 rounded-xl shadow-xs border border-gray-100 flex flex-col md:flex-row gap-3 justify-between items-center">
             <div>
               <h2 class="text-base sm:text-lg font-bold text-gray-800">Katalog Sport & Apparel</h2>
-              <p class="text-xs text-gray-500">Koleksi terlengkap sportswear, sneakers, dan aksesoris.</p>
+              <p class="text-xs text-gray-500">Koleksi terlengkap sportswear, sneakers, dan aksesoris Yusca STORE.</p>
             </div>
             <div class="flex gap-2 w-full md:w-auto">
-              <input type="text" id="catalogSearchInput" placeholder="Cari produk / SKU..." onkeyup="handleCatalogSearch(event)" class="text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-600 flex-1 md:w-64">
+              <input type="text" id="catalogSearchInput" placeholder="Cari produk / SKU real-time..." oninput="handleCatalogSearch(event)" class="text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-600 flex-1 md:w-64">
               <select id="catalogCategorySelect" onchange="filterCatalogCategory(this.value)" class="text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-600 bg-white">
                 <option value="All">Semua Kategori</option>
                 <option value="Flash Sale">⚡ Flash Sale Spesial</option>
@@ -390,65 +379,68 @@
             </div>
           </div>
 
-          <!-- GROUP 1: FLASH SALE (UNIVERSAL VISIBLE TO ALL ROLES) -->
-          <div class="space-y-2">
-            <div class="flex items-center justify-between px-1">
-              <div class="flex items-center space-x-2">
-                <span class="text-amber-500 font-bold text-base">⚡</span>
-                <h3 class="text-sm font-bold text-gray-800">Flash Sale Spesial</h3>
-                <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Diskon Terbatas</span>
+          <!-- ALL SLIDER GROUPS CONTAINER -->
+          <div id="catalogSliderGroups" class="space-y-6">
+            <!-- Group 1: Flash sale slider -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between px-1">
+                <div class="flex items-center space-x-2">
+                  <span class="text-amber-500 font-bold text-base">⚡</span>
+                  <h3 class="text-sm font-bold text-gray-800">Flash Sale Spesial</h3>
+                  <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Diskon Terbatas</span>
+                </div>
+                <button onclick="filterCatalogCategory('Flash Sale')" class="text-xs text-teal-700 font-bold hover:underline flex items-center space-x-1">
+                  <span>Lihat Lebih Banyak</span>
+                  <span>&gt;</span>
+                </button>
               </div>
-              <button onclick="filterCatalogCategory('Flash Sale')" class="text-xs text-teal-700 font-bold hover:underline flex items-center space-x-1">
-                <span>Lihat Lebih Banyak</span>
-                <span>&gt;</span>
-              </button>
+              <div id="sliderFlashSale" class="flex overflow-x-auto gap-3 pb-2 scroll-snap-x no-scrollbar"></div>
             </div>
-            <div id="sliderFlashSale" class="flex overflow-x-auto gap-3 pb-2 scroll-snap-x no-scrollbar"></div>
-          </div>
 
-          <!-- GROUP 2: KATALOG PRIA -->
-          <div class="space-y-2 pt-2">
-            <div class="flex items-center justify-between px-1">
-              <div class="flex items-center space-x-2">
-                <span class="text-teal-700 font-bold text-base">👟</span>
-                <h3 class="text-sm font-bold text-gray-800">Katalog Pria</h3>
+            <!-- Group 2: Katalog Pria -->
+            <div class="space-y-2 pt-2">
+              <div class="flex items-center justify-between px-1">
+                <div class="flex items-center space-x-2">
+                  <span class="text-teal-700 font-bold text-base">👟</span>
+                  <h3 class="text-sm font-bold text-gray-800">Katalog Pria</h3>
+                </div>
+                <button onclick="filterCatalogCategory('Sepatu Pria')" class="text-xs text-teal-700 font-bold hover:underline flex items-center space-x-1">
+                  <span>Lihat Lebih Banyak</span>
+                  <span>&gt;</span>
+                </button>
               </div>
-              <button onclick="filterCatalogCategory('Sepatu Pria')" class="text-xs text-teal-700 font-bold hover:underline flex items-center space-x-1">
-                <span>Lihat Lebih Banyak</span>
-                <span>&gt;</span>
-              </button>
+              <div id="sliderPria" class="flex overflow-x-auto gap-3 pb-2 scroll-snap-x no-scrollbar"></div>
             </div>
-            <div id="sliderPria" class="flex overflow-x-auto gap-3 pb-2 scroll-snap-x no-scrollbar"></div>
-          </div>
 
-          <!-- GROUP 3: KATALOG WANITA -->
-          <div class="space-y-2 pt-2">
-            <div class="flex items-center justify-between px-1">
-              <div class="flex items-center space-x-2">
-                <span class="text-rose-500 font-bold text-base">👠</span>
-                <h3 class="text-sm font-bold text-gray-800">Katalog Wanita</h3>
+            <!-- Group 3: Katalog Wanita -->
+            <div class="space-y-2 pt-2">
+              <div class="flex items-center justify-between px-1">
+                <div class="flex items-center space-x-2">
+                  <span class="text-rose-500 font-bold text-base">👠</span>
+                  <h3 class="text-sm font-bold text-gray-800">Katalog Wanita</h3>
+                </div>
+                <button onclick="filterCatalogCategory('Sepatu Lari')" class="text-xs text-teal-700 font-bold hover:underline flex items-center space-x-1">
+                  <span>Lihat Lebih Banyak</span>
+                  <span>&gt;</span>
+                </button>
               </div>
-              <button onclick="filterCatalogCategory('Sepatu Lari')" class="text-xs text-teal-700 font-bold hover:underline flex items-center space-x-1">
-                <span>Lihat Lebih Banyak</span>
-                <span>&gt;</span>
-              </button>
+              <div id="sliderWanita" class="flex overflow-x-auto gap-3 pb-2 scroll-snap-x no-scrollbar"></div>
             </div>
-            <div id="sliderWanita" class="flex overflow-x-auto gap-3 pb-2 scroll-snap-x no-scrollbar"></div>
-          </div>
 
-          <!-- GROUP 4: KATALOG ANAK & AKSESORIS -->
-          <div class="space-y-2 pt-2">
-            <div class="flex items-center justify-between px-1">
-              <div class="flex items-center space-x-2">
-                <span class="text-sky-500 font-bold text-base">🧒</span>
-                <h3 class="text-sm font-bold text-gray-800">Katalog Anak & Aksesoris</h3>
+            <!-- Group 4: Katalog Anak & Aksesoris -->
+            <div class="space-y-2 pt-2">
+              <div class="flex items-center justify-between px-1">
+                <div class="flex items-center space-x-2">
+                  <span class="text-sky-500 font-bold text-base">🧒</span>
+                  <h3 class="text-sm font-bold text-gray-800">Katalog Anak & Aksesoris</h3>
+                </div>
+                <button onclick="filterCatalogCategory('Aksesoris')" class="text-xs text-teal-700 font-bold hover:underline flex items-center space-x-1">
+                  <span>Lihat Lebih Banyak</span>
+                  <span>&gt;</span>
+                </button>
               </div>
-              <button onclick="filterCatalogCategory('Aksesoris')" class="text-xs text-teal-700 font-bold hover:underline flex items-center space-x-1">
-                <span>Lihat Lebih Banyak</span>
-                <span>&gt;</span>
-              </button>
+              <div id="sliderAnakAksesoris" class="flex overflow-x-auto gap-3 pb-2 scroll-snap-x no-scrollbar"></div>
             </div>
-            <div id="sliderAnakAksesoris" class="flex overflow-x-auto gap-3 pb-2 scroll-snap-x no-scrollbar"></div>
           </div>
 
           <!-- SINGLE FILTERED GRID -->
@@ -463,15 +455,13 @@
 
         <!-- ================= VIEW 3: DAFTAR PESANAN ================= -->
         <section id="view-orders" class="hidden space-y-4">
-          
-          <!-- ADMIN ORDERS VIEW CONTAINER -->
           <div id="adminOrdersSection" class="space-y-4">
             <div class="bg-white p-4 rounded-xl shadow-xs border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
                 <h2 class="text-lg font-bold text-gray-800">Manajemen Pesanan Pelanggan (Admin)</h2>
                 <p class="text-xs text-gray-500">Kelola status pesanan, pembayaran, dan rincian transaksi.</p>
               </div>
-              <div class="flex gap-2 w-full sm:w-auto">
+              <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                 <input type="text" id="orderSearchInput" placeholder="Cari Order ID / Pelanggan..." onkeyup="loadOrders(1)" class="text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-600">
                 <select id="orderStatusFilter" onchange="loadOrders(1)" class="text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-teal-600 bg-white">
                   <option value="All">Semua Status</option>
@@ -481,6 +471,10 @@
                   <option value="Delivered">Delivered</option>
                   <option value="Canceled">Canceled</option>
                 </select>
+
+                <button onclick="exportOrdersCSV()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3.5 py-2 rounded-lg transition flex items-center space-x-1.5 shadow-sm">
+                  <span>📥</span> <span>Export CSV</span>
+                </button>
               </div>
             </div>
 
@@ -504,7 +498,6 @@
             </div>
           </div>
 
-          <!-- CUSTOMER RINCIAN BELANJA & STEPPER STATUS SECTION -->
           <div id="customerOrdersSection" class="hidden space-y-4">
             <div class="flex items-center justify-between bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
               <div>
@@ -529,7 +522,10 @@
                 <h2 class="text-lg font-bold text-gray-800">Manajemen Stok & Jenis Produk</h2>
                 <p class="text-xs text-gray-500">Kelola kuantitas stok toko, master SKU, promo Flash Sale, dan metadata Jenis Produk.</p>
               </div>
-              <div class="flex gap-2">
+              <div class="flex flex-wrap gap-2">
+                <button id="btnImportCsvMasterStock" onclick="openImportCsvModal()" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-1 shadow-sm">
+                  <span>📥</span> <span>Import CSV</span>
+                </button>
                 <button id="btnAddNewMasterStock" onclick="openMasterModal(false)" class="hidden bg-zett-teal text-white px-3.5 py-2 rounded-lg text-xs font-semibold hover:bg-teal-800 transition flex items-center space-x-1">
                   <span>+</span> <span>Tambah Produk SKU</span>
                 </button>
@@ -539,7 +535,6 @@
               </div>
             </div>
 
-            <!-- Segmented Control Sub-Tab Switcher (4 Tabs) -->
             <div class="grid grid-cols-2 sm:grid-cols-4 bg-gray-100 p-1 rounded-xl w-full text-xs font-bold gap-1">
               <button id="btnSubTabInv" onclick="switchStockSubTab('branch')" class="py-2 rounded-lg bg-white shadow-xs text-teal-800 transition text-center">
                 Stok Utama
@@ -556,7 +551,7 @@
             </div>
           </div>
 
-          <!-- SUB-TAB 1: STOK UTAMA -->
+          <!-- Sub-tab 1: Stok Utama -->
           <div id="stockSubTabBranch" class="space-y-3">
             <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-3 rounded-xl border border-gray-100 gap-2">
               <div class="relative w-full sm:w-72">
@@ -587,7 +582,7 @@
             </div>
           </div>
 
-          <!-- SUB-TAB 2: MASTER STOK / PRODUCT DATA -->
+          <!-- Sub-tab 2: Master SKU -->
           <div id="stockSubTabMaster" class="hidden space-y-3">
             <div class="bg-white p-3 rounded-xl border border-gray-100 flex items-center justify-between">
               <div class="relative w-full sm:w-72">
@@ -617,7 +612,7 @@
             </div>
           </div>
 
-          <!-- SUB-TAB 3: FLASH SALE CONFIGURATION -->
+          <!-- Sub-tab 3: Flash sale -->
           <div id="stockSubTabFlashSale" class="hidden space-y-3">
             <div class="bg-amber-50 border border-amber-200 p-3.5 rounded-xl text-xs text-amber-900 space-y-3">
               <div class="flex items-center justify-between">
@@ -676,7 +671,7 @@
             </div>
           </div>
 
-          <!-- SUB-TAB 4: JENIS PRODUK (MASTER METADATA BRAND, KATEGORI, TARGET/SIZE) -->
+          <!-- Sub-tab 4: Jenis Produk -->
           <div id="stockSubTabJenisProduk" class="hidden space-y-3">
             <div class="bg-teal-50 border border-teal-200 p-3.5 rounded-xl text-xs text-teal-900 flex items-center justify-between">
               <div class="flex items-center space-x-2">
@@ -739,8 +734,12 @@
   <!-- Modular Modal Components Include -->
   <?!= include('modals'); ?>
 
-  <!-- Modular Script Component Include -->
-  <?!= include('js'); ?>
+  <!-- Modular Script Components Include -->
+  <?!= include('js_core'); ?>
+  <?!= include('js_catalog_cart'); ?>
+  <?!= include('js_orders'); ?>
+  <?!= include('js_inventory'); ?>
+  <?!= include('js_dashboard'); ?>
 
 </body>
 </html>
