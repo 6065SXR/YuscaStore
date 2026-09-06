@@ -459,11 +459,13 @@
           .withSuccessHandler(function(res) {
             showToast(res.message, res.success ? 'success' : 'error');
             loadMasterProducts(1);
+            loadInventory(1);
           })
           .deleteMasterProduct(id, adminName);
       } else {
         showToast('Produk ' + id + ' berhasil dihapus (simulasi)!', 'success');
         loadMasterProducts(1);
+        loadInventory(1);
       }
     }
   }
@@ -493,7 +495,7 @@
         .getInventoryPaginated(page || 1, 15, '');
     } else {
       renderInventoryTable([
-        { sku: 'SKU-SP-001', productName: 'Adidas Superstar 42', category: 'Sepatu Pria', brand: 'Adidas', quantity: 3, status: 'Low Stock', dateUpdated: '05/09/2026' }
+        { sku: 'SKU-SP-001', productName: 'Sepatu', category: 'Sepatu Pria', brand: 'Puma', quantity: 3, status: 'Low Stock', dateUpdated: '06/09/2026' }
       ]);
     }
   }
@@ -653,12 +655,14 @@
           closeModal('masterProductModal');
           showToast(res.message, res.success ? 'success' : 'error');
           loadMasterProducts(1);
+          loadInventory(1);
         })
         .saveMasterProduct(payload, isEdit, adminName);
     } else {
       closeModal('masterProductModal');
       showToast('Data master berhasil disimpan (simulasi)!', 'success');
       loadMasterProducts(1);
+      loadInventory(1);
     }
   }
 
