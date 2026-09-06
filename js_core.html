@@ -1,0 +1,366 @@
+<script>
+  // Global State Variables
+  var currentUser = null; 
+  var cart = [];
+  var currentCatalogPage = 1;
+  var currentActiveView = 'catalog';
+  var salesGrowthChartInstance = null;
+  var profitTrendChartInstance = null;
+  var cachedCatalogItems = []; 
+  var cachedJenisProdukList = [];
+
+  var IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 1 jam (3.600.000 ms)
+
+  window.addEventListener('load', function() {
+    var today = new Date();
+    var firstDayMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    var formatDateISO = function(d) {
+      var yr = d.getFullYear();
+      var mo = ('0' + (d.getMonth() + 1)).slice(-2);
+      var da = ('0' + d.getDate()).slice(-2);
+      return yr + '-' + mo + '-' + da;
+    };
+
+    var startEl = document.getElementById('profitStartDate');
+    var endEl = document.getElementById('profitEndDate');
+    if (startEl) startEl.value = formatDateISO(firstDayMonth);
+    if (endEl) endEl.value = formatDateISO(today);
+
+    setupActivityListeners();
+
+    setTimeout(function() {
+      var splash = document.getElementById('splashScreen');
+      if (splash) {
+        splash.style.opacity = '0';
+        setTimeout(function() { splash.classList.add('hidden'); }, 500);
+      }
+      checkSessionOnLoad();
+      loadJenisProdukData();
+    }, 1700);
+  });
+
+  function checkSessionOnLoad() {
+    try {
+      var savedUser = localStorage.getItem('yusca_user');
+      var lastAct = localStorage.getItem('yusca_last_activity');
+      if (savedUser && lastAct) {
+        var elapsed = Date.now() - parseInt(lastAct, 10);
+        if (elapsed > IDLE_TIMEOUT_MS) {
+          clearSessionData();
+          showToast('Sesi Anda telah berakhir karena inaktivitas selama 1 jam. Silakan login kembali.', 'warning');
+          updateAuthUI();
+        } else {
+          currentUser = JSON.parse(savedUser);
+          updateActivityTimestamp();
+          updateAuthUI();
+        }
+      } else {
+        updateAuthUI();
+      }
+    } catch (e) {
+      updateAuthUI();
+    }
+  }
+
+  function updateActivityTimestamp() {
+    if (currentUser) {
+      localStorage.setItem('yusca_last_activity', Date.now().toString());
+    }
+  }
+
+  function clearSessionData() {
+    currentUser = null;
+    localStorage.removeItem('yusca_user');
+    localStorage.removeItem('yusca_last_activity');
+  }
+
+  function setupActivityListeners() {
+    var events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    events.forEach(function(evt) {
+      window.addEventListener(evt, function() {
+        if (currentUser) updateActivityTimestamp();
+      }, { passive: true });
+    });
+
+    setInterval(function() {
+      if (currentUser) {
+        var lastAct = localStorage.getItem('yusca_last_activity');
+        if (lastAct && (Date.now() - parseInt(lastAct, 10) > IDLE_TIMEOUT_MS)) {
+          logout();
+          showToast('Sesi di-logout otomatis karena inaktivitas 1 jam.', 'warning');
+        }
+      }
+    }, 15000);
+  }
+
+  function showToast(message, type) {
+    var container = document.getElementById('toastContainer');
+    var toast = document.createElement('div');
+    var bgColor = type === 'error' ? 'bg-rose-600' : (type === 'warning' ? 'bg-amber-500' : 'bg-teal-700');
+    toast.className = bgColor + ' text-white text-xs px-4 py-3 rounded-lg shadow-xl flex items-center space-x-2 transition-all duration-300';
+    toast.innerHTML = '<span>' + (type === 'error' ? '⚠️' : '✓') + '</span><span>' + message + '</span>';
+    container.appendChild(toast);
+    setTimeout(function() {
+      toast.style.opacity = '0';
+      setTimeout(function() { container.removeChild(toast); }, 300);
+    }, 3500);
+  }
+
+  function toggleUserDropdown() {
+    var dd = document.getElementById('userDropdown');
+    dd.classList.toggle('hidden');
+  }
+
+  function openModal(id) {
+    document.getElementById(id).classList.remove('hidden');
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.add('hidden');
+  }
+
+  function switchView(viewName) {
+    currentActiveView = viewName;
+    var views = ['dashboard', 'catalog', 'orders', 'inventory'];
+    for (var i = 0; i < views.length; i++) {
+      var el = document.getElementById('view-' + views[i]);
+      var nav = document.getElementById('nav-' + views[i]);
+      var custNav = document.getElementById('nav-customer-' + views[i]);
+
+      if (el) el.classList.add('hidden');
+      if (nav) {
+        nav.classList.remove('bg-teal-800/80', 'text-white');
+        nav.classList.add('hover:bg-teal-700/50');
+      }
+      if (custNav) {
+        custNav.classList.remove('bg-teal-800/80', 'text-white');
+        custNav.classList.add('hover:bg-teal-700/50');
+      }
+    }
+
+    var activeEl = document.getElementById('view-' + viewName);
+    var activeNav = document.getElementById('nav-' + viewName);
+    var activeCustNav = document.getElementById('nav-customer-' + viewName);
+
+    if (activeEl) activeEl.classList.remove('hidden');
+    if (activeNav) {
+      activeNav.classList.add('bg-teal-800/80', 'text-white');
+      activeNav.classList.remove('hover:bg-teal-700/50');
+    }
+    if (activeCustNav) {
+      activeCustNav.classList.add('bg-teal-800/80', 'text-white');
+      activeCustNav.classList.remove('hover:bg-teal-700/50');
+    }
+
+    renderMobileBottomNav();
+
+    if (viewName === 'orders') loadOrders(1);
+    if (viewName === 'inventory') {
+      loadInventory(1);
+      loadMasterProducts(1);
+      loadJenisProdukData();
+    }
+    if (viewName === 'dashboard') {
+      initDashboard();
+      loadProfitReport();
+    }
+    if (viewName === 'catalog') loadCatalog(1);
+  }
+
+  function updateAuthUI() {
+    var gate = document.getElementById('loginGate');
+    var wrapper = document.getElementById('appWrapper');
+    var topbarName = document.getElementById('topbarUserName');
+    var sbName = document.getElementById('sidebarUserName');
+    var dropName = document.getElementById('dropdownName');
+    var dropRole = document.getElementById('dropdownRole');
+    var adminGroup = document.getElementById('adminNavGroup');
+    var custNavGroup = document.getElementById('customerNavGroup');
+
+    if (!currentUser) {
+      gate.classList.remove('hidden');
+      wrapper.classList.add('hidden');
+      return;
+    }
+
+    gate.classList.add('hidden');
+    wrapper.classList.remove('hidden');
+
+    topbarName.textContent = currentUser.name;
+    sbName.textContent = currentUser.name;
+    dropName.textContent = currentUser.name;
+    dropRole.textContent = currentUser.role;
+
+    if (currentUser.role === 'Pembeli') {
+      if (adminGroup) adminGroup.classList.add('hidden');
+      if (custNavGroup) custNavGroup.classList.remove('hidden');
+      switchView('catalog');
+    } else {
+      if (adminGroup) adminGroup.classList.remove('hidden');
+      if (custNavGroup) custNavGroup.classList.add('hidden');
+      switchView('catalog'); 
+    }
+
+    renderMobileBottomNav();
+  }
+
+  function renderMobileBottomNav() {
+    var container = document.getElementById('mobileBottomNavItems');
+    var fabIcon = document.getElementById('mobileCenterFabIcon');
+    if (!container || !currentUser) return;
+
+    container.innerHTML = '';
+
+    var svgIcons = {
+      catalog: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>',
+      orders: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 022 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>',
+      cartFab: '<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>',
+      chatAdmin: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>',
+      logout: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>',
+      report: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>',
+      stock: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>'
+    };
+
+    if (currentUser.role === 'Pembeli') {
+      fabIcon.innerHTML = svgIcons.cartFab;
+      var items = [
+        { view: 'catalog', label: 'Katalog', iconSvg: svgIcons.catalog },
+        { view: 'orders', label: 'Pesanan', iconSvg: svgIcons.orders },
+        { isSpacer: true },
+        { action: 'chatAdmin', label: 'Chat Admin', iconSvg: svgIcons.chatAdmin },
+        { action: 'logout', label: 'Keluar', iconSvg: svgIcons.logout }
+      ];
+      items.forEach(function(item) {
+        if (item.isSpacer) { container.appendChild(createSpacerElement()); return; }
+        container.appendChild(createBottomNavItem(item));
+      });
+    } else {
+      fabIcon.innerHTML = svgIcons.catalog;
+      var adminItems = [
+        { view: 'orders', label: 'Pesanan', iconSvg: svgIcons.orders },
+        { view: 'inventory', label: 'Stock', iconSvg: svgIcons.stock },
+        { isSpacer: true },
+        { view: 'dashboard', label: 'Laporan', iconSvg: svgIcons.report },
+        { action: 'logout', label: 'Keluar', iconSvg: svgIcons.logout }
+      ];
+      adminItems.forEach(function(item) {
+        if (item.isSpacer) { container.appendChild(createSpacerElement()); return; }
+        container.appendChild(createBottomNavItem(item));
+      });
+    }
+  }
+
+  function createSpacerElement() {
+    var spacer = document.createElement('div');
+    spacer.className = 'w-14 h-full flex-shrink-0';
+    return spacer;
+  }
+
+  function createBottomNavItem(item) {
+    var btn = document.createElement('button');
+    var isActive = (item.view && item.view === currentActiveView);
+    btn.className = 'bottom-nav-item ' + (isActive ? 'active' : '');
+
+    if (item.action === 'logout') {
+      btn.onclick = function() { logout(); };
+    } else if (item.action === 'chatAdmin') {
+      btn.onclick = function() { openChatAdmin(); };
+    } else {
+      btn.onclick = function() { switchView(item.view); };
+    }
+
+    btn.innerHTML = '<span class="mb-0.5">' + item.iconSvg + '</span>' +
+      '<span class="text-[10px] font-semibold leading-tight">' + item.label + '</span>' +
+      '<span class="nav-dot"></span>';
+
+    return btn;
+  }
+
+  function openChatAdmin() {
+    var adminPhone = '6281234567890';
+    var text = encodeURIComponent('Halo Admin Yusca STORE, saya ingin bertanya tentang produk / pesanan saya.');
+    window.open('https://api.whatsapp.com/send?phone=' + adminPhone + '&text=' + text, '_blank');
+  }
+
+  function handleMobileFabClick() {
+    if (currentUser && currentUser.role === 'Pembeli') {
+      openCartDrawer();
+    } else {
+      switchView('catalog');
+    }
+  }
+
+  function toggleGateAuthMode(mode) {
+    if (mode === 'register') {
+      document.getElementById('loginGateForm').classList.add('hidden');
+      document.getElementById('registerGateForm').classList.remove('hidden');
+    } else {
+      document.getElementById('loginGateForm').classList.remove('hidden');
+      document.getElementById('registerGateForm').classList.add('hidden');
+    }
+  }
+
+  function submitLoginGate() {
+    var phone = document.getElementById('gateLoginPhone').value.trim();
+    var pass = document.getElementById('gateLoginPassword').value.trim();
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success) {
+            currentUser = res.user;
+            localStorage.setItem('yusca_user', JSON.stringify(currentUser));
+            updateActivityTimestamp();
+            updateAuthUI();
+            showToast('Selamat datang, ' + res.user.name + '!', 'success');
+          } else {
+            showToast(res.message, 'error');
+          }
+        })
+        .loginUser(phone, pass);
+    } else {
+      currentUser = { name: 'Erik Dermawan', phone: phone, role: 'Super Admin', userId: 'USR-0001' };
+      localStorage.setItem('yusca_user', JSON.stringify(currentUser));
+      updateActivityTimestamp();
+      updateAuthUI();
+      showToast('Simulasi Login Berhasil!', 'success');
+    }
+  }
+
+  function submitRegisterGate() {
+    var name = document.getElementById('gateRegName').value.trim();
+    var phone = document.getElementById('gateRegPhone').value.trim();
+    var pass = document.getElementById('gateRegPassword').value.trim();
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.success) {
+            currentUser = res.user;
+            localStorage.setItem('yusca_user', JSON.stringify(currentUser));
+            updateActivityTimestamp();
+            updateAuthUI();
+            showToast('Akun Pembeli berhasil terdaftar!', 'success');
+          } else {
+            showToast(res.message, 'error');
+          }
+        })
+        .registerBuyer({ name: name, phone: phone, password: pass });
+    } else {
+      currentUser = { name: name, phone: phone, role: 'Pembeli', userId: 'CUST-0002' };
+      localStorage.setItem('yusca_user', JSON.stringify(currentUser));
+      updateActivityTimestamp();
+      updateAuthUI();
+      showToast('Pendaftaran akun Pembeli berhasil (simulasi)!', 'success');
+    }
+  }
+
+  function logout() {
+    clearSessionData();
+    var dropdown = document.getElementById('userDropdown');
+    if (dropdown) dropdown.classList.add('hidden');
+    updateAuthUI();
+    showToast('Anda telah logout dari aplikasi.', 'info');
+  }
+</script>
