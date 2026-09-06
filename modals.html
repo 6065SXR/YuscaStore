@@ -35,8 +35,8 @@
 
     <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">
       <p class="font-semibold">Pemberitahuan Transfer:</p>
-      <p>Silakan transfer total pembayaran ke rekening resmi ZETT STORE berikut:</p>
-      <p class="font-mono font-bold text-gray-900 mt-1">BCA: 8830-192-881 (a.n Zettbos Store)</p>
+      <p>Silakan transfer total pembayaran ke rekening resmi Yusca STORE berikut:</p>
+      <p class="font-mono font-bold text-gray-900 mt-1">BCA: 8830-192-881 (a.n Yusca Store)</p>
     </div>
 
     <div class="space-y-3 text-xs">
@@ -88,6 +88,15 @@
         </select>
       </div>
       <div>
+        <label class="block font-semibold text-gray-700 mb-1">Brand</label>
+        <select id="masterBrand" class="w-full border rounded-lg p-2.5 bg-white">
+          <option value="Yusca">Yusca</option>
+          <option value="Adidas">Adidas</option>
+          <option value="Nike">Nike</option>
+          <option value="Puma">Puma</option>
+        </select>
+      </div>
+      <div>
         <label class="block font-semibold text-gray-700 mb-1">Harga (Rp)</label>
         <input type="number" id="masterPrice" required placeholder="Contoh: 1250000" class="w-full border rounded-lg p-2.5 focus:border-teal-600 focus:outline-none">
       </div>
@@ -107,6 +116,85 @@
   </div>
 </div>
 
+<!-- ================= IMPORT CSV MODAL ================= -->
+<div id="importCsvModal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+    <div class="flex justify-between items-center border-b pb-3">
+      <h3 class="font-bold text-gray-800 text-base flex items-center space-x-2">
+        <span>📥</span> <span>Import Master Produk via CSV</span>
+      </h3>
+      <button onclick="closeModal('importCsvModal')" class="text-gray-400 hover:text-gray-600">✕</button>
+    </div>
+
+    <div class="bg-teal-50 border border-teal-200 rounded-xl p-3.5 text-xs text-teal-900 space-y-2">
+      <p class="font-bold">📋 Petunjuk & Format Kolom CSV:</p>
+      <p class="text-[11px] text-teal-800 leading-relaxed">
+        File CSV wajib memiliki header baris pertama dengan urutan kolom:
+      </p>
+      <div class="bg-white/80 p-2 rounded border border-teal-100 font-mono text-[10px] text-teal-900 font-semibold overflow-x-auto">
+        SKU, ProductName, Description, Category, Brand, ImageURL, Price
+      </div>
+      <ul class="list-disc pl-4 text-[11px] space-y-1 text-teal-800">
+        <li>SKU yang sudah ada di database akan <b>otomatis dilewati (gagal/dilewati)</b>.</li>
+        <li>Hanya SKU baru/unik yang akan berhasil diimpor.</li>
+      </ul>
+      <button onclick="downloadSampleCsvTemplate()" type="button" class="mt-1 w-full bg-teal-100 hover:bg-teal-200 text-teal-900 border border-teal-300 font-bold py-1.5 px-3 rounded-lg transition text-[11px] flex items-center justify-center space-x-1">
+        <span>📄</span> <span>Download Template CSV Contoh</span>
+      </button>
+    </div>
+
+    <form id="importCsvForm" onsubmit="event.preventDefault(); submitImportCsv();" class="space-y-4 text-xs">
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1.5">Pilih File CSV (.csv)</label>
+        <input type="file" id="importCsvFileInput" accept=".csv" required class="w-full border border-gray-200 rounded-xl p-2.5 text-xs focus:border-teal-600 focus:outline-none bg-gray-50">
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2">
+        <button type="button" onclick="closeModal('importCsvModal')" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg text-xs transition">
+          Batal
+        </button>
+        <button type="submit" id="btnSubmitImportCsv" class="px-5 py-2 bg-zett-teal hover:bg-teal-800 text-white font-bold rounded-lg text-xs transition shadow-md">
+          Mulai Import CSV
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= JENIS PRODUK MODAL ================= -->
+<div id="jenisProdukModal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+    <div class="flex justify-between items-center border-b pb-2">
+      <h3 id="jenisModalTitle" class="font-bold text-gray-800 text-base">Tambah Jenis Produk Baru</h3>
+      <button onclick="closeModal('jenisProdukModal')" class="text-gray-400 hover:text-gray-600">✕</button>
+    </div>
+
+    <form id="jenisProdukForm" onsubmit="event.preventDefault(); submitJenisProduk();" class="space-y-3 text-xs">
+      <input type="hidden" id="jenisEditId">
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Tipe Metadata</label>
+        <select id="jenisType" class="w-full border rounded-lg p-2.5 bg-white focus:border-teal-600 focus:outline-none">
+          <option value="Brand">Brand</option>
+          <option value="Category">Category (Kategori)</option>
+          <option value="Target / Size">Target / Size (Varian)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Nama Metadata</label>
+        <input type="text" id="jenisName" required placeholder="Contoh: Adidas, Sepatu Lari, Pria Size 40" class="w-full border rounded-lg p-2.5 focus:border-teal-600 focus:outline-none">
+      </div>
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Keterangan Singkat</label>
+        <textarea id="jenisDesc" rows="2" placeholder="Penjelasan singkat jenis produk..." class="w-full border rounded-lg p-2.5 focus:border-teal-600 focus:outline-none"></textarea>
+      </div>
+
+      <button type="submit" class="w-full bg-zett-teal text-white font-bold py-2.5 rounded-lg hover:bg-teal-800 transition">
+        Simpan Jenis Produk
+      </button>
+    </form>
+  </div>
+</div>
+
 <!-- ================= INVENTORY EDIT MODAL ================= -->
 <div id="editStockModal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
   <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
@@ -116,7 +204,6 @@
     </div>
     <form onsubmit="event.preventDefault(); submitInventoryUpdate();" class="space-y-3 text-xs">
       <input type="hidden" id="stockEditSku">
-      <input type="hidden" id="stockEditBranch">
       <div>
         <label class="block font-semibold text-gray-700 mb-1">Nama Produk / SKU</label>
         <p id="stockEditLabel" class="font-bold text-gray-800"></p>
@@ -136,12 +223,13 @@
 <div id="deleteConfirmModal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
   <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl text-center">
     <div class="text-4xl text-rose-500">⚠️</div>
-    <h3 class="font-bold text-gray-800 text-base">Hapus Produk Master</h3>
-    <p class="text-xs text-gray-500">Apakah Anda yakin ingin menghapus produk dengan SKU <b id="deleteConfirmSkuText" class="text-gray-800"></b>? Tindakan ini tidak dapat dibatalkan.</p>
+    <h3 class="font-bold text-gray-800 text-base">Konfirmasi Hapus Data</h3>
+    <p class="text-xs text-gray-500">Apakah Anda yakin ingin menghapus item <b id="deleteConfirmSkuText" class="text-gray-800"></b>? Tindakan ini tidak dapat dibatalkan.</p>
     <input type="hidden" id="deleteTargetSku">
+    <input type="hidden" id="deleteTypeAction" value="product">
     <div class="flex space-x-2 pt-2">
       <button onclick="closeModal('deleteConfirmModal')" class="w-1/2 bg-gray-100 text-gray-700 font-bold py-2 rounded-lg text-xs hover:bg-gray-200 transition">Batal</button>
-      <button onclick="executeProductDeletion()" class="w-1/2 bg-rose-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-rose-700 transition">Hapus Produk</button>
+      <button onclick="executeGenericDeletion()" class="w-1/2 bg-rose-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-rose-700 transition">Hapus Data</button>
     </div>
   </div>
 </div>
